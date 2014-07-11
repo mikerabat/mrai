@@ -1,0 +1,64 @@
+package mrAI;
+
+{$R *.res}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO ON}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$IMPLICITBUILD ON}
+{$DEFINE DEBUG}
+
+requires
+  rtl,
+  mrMath,
+  mrImgUtils;
+
+contains
+  DataSetTraining in 'DataSetTraining.pas',
+  EnsembleClassifier in 'EnsembleClassifier.pas',
+  Haar2DImageSweep in 'Haar2DImageSweep.pas',
+  Image2DSweep in 'Image2DSweep.pas',
+  BaseClassifier in 'BaseClassifier.pas',
+  BaseIncrementalLearner in 'BaseIncrementalLearner.pas',
+  BaseMatrixExamples in 'BaseMatrixExamples.pas',
+  ClassifierUtils in 'ClassifierUtils.pas',
+  FischerIncrementalClassifiers in 'IncrementalClassifier\FischerIncrementalClassifiers.pas',
+  IncrementalFischerLDA in 'IncrementalClassifier\IncrementalFischerLDA.pas',
+  DecisionTree45 in 'SimpleClassifier\DecisionTree45.pas',
+  FischerBatchLDA in 'SimpleClassifier\FischerBatchLDA.pas',
+  FischerClassifiers in 'SimpleClassifier\FischerClassifiers.pas',
+  NaiveBayes in 'SimpleClassifier\NaiveBayes.pas',
+  SimpleDecisionStump in 'SimpleClassifier\SimpleDecisionStump.pas',
+  SVM in 'SimpleClassifier\SVM.pas',
+  TreeStructs in 'SimpleClassifier\TreeStructs.pas',
+  Haar2DDataSet in 'DataIO\Haar2DDataSet.pas',
+  ImageDataSet in 'DataIO\ImageDataSet.pas',
+  IncrementalImageDataSet in 'DataIO\IncrementalImageDataSet.pas',
+  AdaBoost in 'EnsembleClassifiers\AdaBoost.pas',
+  Bagging in 'EnsembleClassifiers\Bagging.pas',
+  BoostCascade in 'EnsembleClassifiers\BoostCascade.pas',
+  CustomBooster in 'EnsembleClassifiers\CustomBooster.pas',
+  Haar2DAdaBoost in 'EnsembleClassifiers\Haar2DAdaBoost.pas',
+  Haar1D in 'FeatureExtractors\Haar1D.pas',
+  Haar1DLearner in 'FeatureExtractors\Haar1DLearner.pas',
+  Haar2D in 'FeatureExtractors\Haar2D.pas',
+  IntegralImg in 'FeatureExtractors\IntegralImg.pas';
+
+end.
