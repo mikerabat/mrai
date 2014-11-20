@@ -15,6 +15,7 @@
 program TestClassifier;
 
 uses
+  madExcept,
   Forms,
   ufrmTestClassifier in 'ufrmTestClassifier.pas' {frmClassifierTest},
   ImageDataSet in '..\DataIO\ImageDataSet.pas',

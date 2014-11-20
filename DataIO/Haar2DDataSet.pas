@@ -55,7 +55,7 @@ type
     procedure AddExample(rc : TRect; classVal : integer);
     function Finish : TCustomLearnerExampleList;
 
-    procedure InitFromDir(const dir : string; doRecursive : Boolean);
+    procedure InitFromDir(const dir : string; doRecursive : Boolean; allFilesSameSize : boolean = False);
 
     constructor Create(winWidth, winHeight : integer; numColPlane : integer; featureList : TIntegralType);
     destructor Destroy; override;
@@ -68,7 +68,7 @@ uses MatrixImageLists, ImageMatrixConv, math, BaseIncrementalLearner,
 
 { THaar2DLearnerExampleListCreator }
 
-procedure THaar2DLearnerExampleListCreator.InitFromDir(const dir: string; doRecursive : Boolean);
+procedure THaar2DLearnerExampleListCreator.InitFromDir(const dir: string; doRecursive : Boolean; allFilesSameSize : boolean = False);
 var colType : TimageConvType;
 begin
      // initialize the list from a directory containing images + the corresponding
@@ -87,7 +87,12 @@ begin
         Recursive := doRecursive;
         OnImageStep := Haar2DImgLoad;
 
-        ReadListFromDirectory(dir, colType);
+        if allFilesSameSize 
+        then
+            ReadListFromDirectory(dir, colType)
+        else
+            ReadListFromDirectoryRaw(dir, colType);
+            
      finally
             Free;
      end;

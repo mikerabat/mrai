@@ -171,6 +171,9 @@ var haarLearner : THaar2DDiscreteAdaBoostLearner;
     learnParams : THaar2DBoostProps;
     ds : THaar2DLearnerExampleListCreator;
     haar2DClassifier : THaar2DAdaBoost;
+    counter: Integer;
+    cl : integer;
+    numCorrectClassified : integer;
 begin
      if not DirectoryExists(edFaceDB.Text) then
      begin
@@ -183,7 +186,7 @@ begin
      learnParams.winHeight := 24;
      learnParams.numColorPlanes := 1;
      learnParams.FeatureTypes := itSumSqr;
-     learnParams.baseProps.NumRounds := 20;
+     learnParams.baseProps.NumRounds := 100;
      learnParams.baseProps.WeakLearner := TDecisionStumpLearner.Create;
      learnParams.baseProps.PruneToLowestError := False;
      learnParams.baseProps.InitClassSpecificWeights := True;
@@ -200,6 +203,18 @@ begin
         haarLearner.Init(ds.LearnerList);
         haarLearner.OnLearnProgress := boostLearnProgress;
         haar2DClassifier := haarLearner.Learn as THaar2DAdaBoost;
+
+        numCorrectClassified := 0;
+        for counter := 0 to ds.LearnerList.Count - 1 do
+        begin
+             cl := haar2DClassifier.Classify(ds.LearnerList[counter]);
+
+             if cl = ds.LearnerList[counter].ClassVal then
+                inc(numCorrectClassified);
+        end;
+
+        lblLearnError.Caption := Format('%d of %d, %.2f %% ', [numCorrectClassified, ds.LearnerList.Count, numCorrectClassified/ds.LearnerList.Count*100]);
+        
      finally
             haarLearner.Free;
             ds.Free;
@@ -223,7 +238,7 @@ begin
               OnImageStep := adaBoostImgStep;
               Recursive := True;
 
-              ReadListFromDirectory(edFaceDB.Text, ctGrayScale);
+              ReadListFromDirectoryRaw(edFaceDB.Text, ctGrayScale);
            finally
                   Free;
            end;
