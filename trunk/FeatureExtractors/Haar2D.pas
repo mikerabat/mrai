@@ -79,7 +79,7 @@ type
     fX, fY : integer;
     fScale : double;
     fNumColorPlanes : integer;
-    fNormFact : double;
+    fSigma, fMu : double;
 
     procedure SetX(const Value: integer);
     procedure SetY(const Value: integer);
@@ -200,9 +200,9 @@ begin
 
      if fRefList.FeatureTypes = itSum
      then
-         fNormFact := 1
+         fSigma := 1
      else
-         fNormFact := MaxDouble;
+         fSigma := MaxDouble;
 
      // calculate the number of features:
      fFeatureVecLen := fRefList.Count*numColorPlanes;
@@ -218,18 +218,21 @@ var mult : double;
     feature : THaar2DFeature;
     w, h : integer;
     colPlane : integer;
-    mu : double;
+    rsSQR : double;
 begin
      if index < fRefList.Count
      then
          colPlane := 0
      else
-         colPlane := index div fRefList.Count;
+     begin
+          colPlane := index div fRefList.Count;
+          index := index - colPlane*fRefList.Count;
+     end;
 
      feature := fRefList.Feature(index);
      Result := feature.EvalFeature(fIntImg, fX, fY, fScale, colPlane);
 
-     if SameValue(fNormFact, MaxDouble) then
+     if SameValue(fSigma, MaxDouble) then
      begin
           // calc norming factor (according to openCV it seems that the norming factor
           // is calculated only once over the complete image
@@ -256,9 +259,10 @@ begin
      //     end
      //     else
      //     begin
-               mu := mult*fIntImg.RecSum(colPlane, 1, 1, w, h);
-
-               fNormFact := 1/(cSigmaFact * sqrt(mult*fIntImg.RecSumSQR(colPlane, 1, 1, w, h) - sqr(mu)));
+               fMu := mult*fIntImg.RecSum(colPlane, 1, 1, w, h);
+               rsSQR := fIntImg.RecSumSQR(colPlane, 1, 1, w, h);
+               
+               fSigma := 1/(cSigmaFact * sqrt(mult*rsSQR - sqr(fMu)));
           //end;
      end;
 
@@ -266,7 +270,7 @@ begin
       //Result := (Result - mu)/(cSigmaFact*sigma);
 
      // note the mean value is not substracted in openCv...
-     Result := fNormFact*Result;
+     Result := fSigma*(Result - fMu);
 end;
 
 procedure THaar2DFeatureList.SetFeature(index: integer; value: double);

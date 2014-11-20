@@ -145,15 +145,6 @@ object frmClassifierTest: TfrmClassifierTest
       OnClick = btnNaiveBayesClick
     end
   end
-  object Button6: TButton
-    Left = 328
-    Top = 72
-    Width = 153
-    Height = 25
-    Caption = 'Fisher LDA'
-    TabOrder = 1
-    OnClick = Button6Click
-  end
   object GroupBox2: TGroupBox
     Left = 516
     Top = 119
@@ -161,7 +152,7 @@ object frmClassifierTest: TfrmClassifierTest
     Height = 466
     Anchors = [akTop, akRight, akBottom]
     Caption = 'Image Classifiers'
-    TabOrder = 2
+    TabOrder = 1
     object Label2: TLabel
       Left = 24
       Top = 33
@@ -312,6 +303,26 @@ object frmClassifierTest: TfrmClassifierTest
       TabOrder = 10
       OnClick = butAdaBoostLoadClick
     end
+    object Button6: TButton
+      Left = 154
+      Top = 72
+      Width = 153
+      Height = 25
+      Caption = 'Fisher LDA'
+      TabOrder = 11
+      OnClick = Button6Click
+    end
+    object chkAutoMerge: TCheckBox
+      Left = 162
+      Top = 380
+      Width = 121
+      Height = 42
+      Caption = 'Auto merge neg.'#13#10'Examples'
+      Checked = True
+      State = cbChecked
+      TabOrder = 12
+      WordWrap = True
+    end
   end
   object Button9: TButton
     Left = 646
@@ -319,19 +330,8 @@ object frmClassifierTest: TfrmClassifierTest
     Width = 149
     Height = 25
     Caption = 'Support Vector Machines'
-    TabOrder = 3
+    TabOrder = 2
     OnClick = Button9Click
-  end
-  object chkAutoMerge: TCheckBox
-    Left = 684
-    Top = 499
-    Width = 121
-    Height = 42
-    Caption = 'Auto merge neg.'#13#10'Examples'
-    Checked = True
-    State = cbChecked
-    TabOrder = 4
-    WordWrap = True
   end
   object sdSaveAdaBoost: TSaveDialog
     DefaultExt = 'cls'
