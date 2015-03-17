@@ -39,8 +39,8 @@ You can check out the libraries from
 http://www.mrsoft.org/
 
 or
-https://code.google.com/p/mrmath/
-https://code.google.com/p/mrimgutil/
+https://github.com/mikerabat/mrmath
+https://github.com/mikerabat/mrimgutil
 
 First download both of these libraries and compile the included dpk files.
 Also add the directories to the library (and or) search paths!
