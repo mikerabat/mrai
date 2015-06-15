@@ -15,7 +15,6 @@
 program TestClassifier;
 
 uses
-  FastMM4 in 'D:\Daten\Delphi2010\3rdParty\FastMM4\FastMM4.pas',
   Forms,
   ufrmTestClassifier in 'ufrmTestClassifier.pas' {frmClassifierTest},
   ImageDataSet in '..\DataIO\ImageDataSet.pas',
@@ -47,8 +46,7 @@ uses
   ClassifierUtils in '..\ClassifierUtils.pas',
   DataSetTraining in '..\DataSetTraining.pas',
   EnsembleClassifier in '..\EnsembleClassifier.pas',
-  RBF in '..\SimpleClassifier\RBF.pas',
-  FastMM4Messages in 'D:\Daten\Delphi2010\3rdParty\FastMM4\FastMM4Messages.pas';
+  RBF in '..\SimpleClassifier\RBF.pas';
 
 {$R *.res}
 
