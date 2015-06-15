@@ -144,6 +144,15 @@ object frmClassifierTest: TfrmClassifierTest
       TabOrder = 7
       OnClick = btnNaiveBayesClick
     end
+    object Button11: TButton
+      Left = 320
+      Top = 72
+      Width = 153
+      Height = 25
+      Caption = 'RBF'
+      TabOrder = 8
+      OnClick = Button11Click
+    end
   end
   object GroupBox2: TGroupBox
     Left = 516
@@ -304,8 +313,8 @@ object frmClassifierTest: TfrmClassifierTest
       OnClick = butAdaBoostLoadClick
     end
     object Button6: TButton
-      Left = 154
-      Top = 72
+      Left = 143
+      Top = 109
       Width = 153
       Height = 25
       Caption = 'Fisher LDA'

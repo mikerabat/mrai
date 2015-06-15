@@ -58,6 +58,7 @@ type
     butC45: TButton;
     btnNaiveBayes: TButton;
     chkAutoMerge: TCheckBox;
+    Button11: TButton;
     procedure Button1Click(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -80,7 +81,7 @@ type
     fFace1, fFace2 : TBitmap;
     fFaceTest : TBitmap;
     fFaceReconstruct : TBitmap;
-    fSVMBmp : TBitmap;
+    fClMapBmp : TBitmap;
 
     fMinVal, fMaxVal : double;
 
@@ -114,7 +115,7 @@ uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
      ImageDataSet, ImageMatrixConv, jpeg, IncrementalImageDataSet,
      IncrementalFischerLDA, FischerIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
-     BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM;
+     BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF;
 
 {$R *.dfm}
 
@@ -313,7 +314,7 @@ begin
      end;
 
      pic := TPicture.Create;
-     pic.LoadFromFile('.\images\phughe.1.jpg');
+     pic.LoadFromFile('.\Faces\Face1_TestImg.jpg');
      bmp := TBitmap.Create;
      bmp.PixelFormat := pf24bit;
      bmp.SetSize(pic.Width, pic.Height);
@@ -338,60 +339,36 @@ begin
 end;
 
 procedure TfrmClassifierTest.Button11Click(Sender: TObject);
+var learner : TRadialBasisLearner;
+    props : TRBFProperties;
 begin
-
-end;
-{
-var cl : TSVMClassifier;
-    feature : TDoubleMatrix;
-    origCl : TStringList;
-    trainData : TStringList;
-    counter: Integer;
-    line : TStringList;
-
-    exmpl : TMatrixExample;
-    ft : TFormatSettings;
-    i: Integer;
-    numCorrect : integer;
-begin
-     GetLocaleFormatSettings(0, ft);
-     ft.DecimalSeparator := '.';
-     cl := SVMClassifier;
-
-     origCl := TStringList.Create;
-     origCl.LoadFromFile('D:\Daten\NoiseDetect\clData.txt');
-
-     trainData := TStringList.Create;
-     trainData.LoadFromFile('D:\Daten\NoiseDetect\trainData.txt');
-     line := TStringList.Create;
-
-     feature := nil;     
-     numCorrect := 0;
-     for counter := 0 to trainData.Count - 1 do
+     if Assigned(fExamples) then
      begin
-          line.CommaText := trainData[counter];
+          fClassifier.Free;
+          FreeAndNil(fClMapBmp);
 
-          if feature = nil then
-          begin
-               feature := TDoubleMatrix.Create(1, line.Count);
-               exmpl := TMatrixExample.Create(feature, True);
+          props.kernel := rbGauss;
+          //props.kernel := rbInvMultqud;
+          props.augmentBase := False;
+          props.sigma := 0.6;
+          props.epsilon := 0.1;
+          props.randomCenterPerc := 0.3;
+          props.RBFlearnAlgorithm := wlLeastSquares;
+          props.centerType := rbRandom;
+
+          learner := TRadialBasisLearner.Create;
+          try
+             learner.SetProps(props);
+             learner.Init(fExamples);
+             fClassifier := learner.Learn;
+          finally
+                 learner.Free;
           end;
-
-          for i := 0 to line.Count - 1 do
-              feature[0, i] := StrToFloat(line[i], ft);
-
-          if StrToInt(origCl[counter]) = cl.Classify(exmpl) then
-             inc(numCorrect);
      end;
 
-     ShowMessage(Format('%d/%d correctly classified', [numCorrect, trainData.Count]));
-     
-     exmpl.Free;
-     line.Free;
-     origCl.Free;
-     cl.Free;
+     PaintBox1.Repaint;
+     TestLearnError;
 end;
-}
 
 procedure TfrmClassifierTest.butAdaBoostLoadClick(Sender: TObject);
 var haar2DClassifier : THaar2DAdaBoost;
@@ -457,7 +434,7 @@ const means : Array[0..3] of double = (3.5, 3.5, 4.5, 4.5);
 begin
      fExamples.Free;
      FreeAndNil(fClassifier);
-     FreeAndNil(fSVMBmp);
+     FreeAndNil(fClMapBmp);
 
 {$IFDEF INITRANDSEED}
      RandSeed := 100;
@@ -685,13 +662,18 @@ begin
      if Assigned(fExamples) then
      begin
           fClassifier.Free;
-          FreeAndNil(fSVMBmp);
+          FreeAndNil(fClMapBmp);
 
           props.learnMethod := lmLagrangian;
           props.autoScale := True;
-          props.kernelType := svmGauss;
+          //props.kernelType := svmGauss;
+          //props.sigma := 0.51;
+          props.kernelType := svmSigmoid;
+          props.scale := 0.5;
+          props.offset := 1;
+
           //props.order := 7;
-          props.sigma := 0.51;
+          
           props.slack := 1;
 
           learner := TSVMLearner.Create;
@@ -779,7 +761,7 @@ procedure TfrmClassifierTest.FormDestroy(Sender: TObject);
 begin
      fExamples.Free;
      fClassifier.Free;
-     fSVMBmp.Free;
+     fClMapBmp.Free;
 
      fFace1.Free;
      fFace2.Free;
@@ -976,60 +958,132 @@ begin
      PaintC45Stub(actTree, 0, False);
 end;
 
-procedure PaintSVM(cl : TSVMClassifier);
+procedure PaintRBFCenters(cl : TRBFClassifier);
+var aMtx : IMatrix;
+    cnt: Integer;
+begin
+     aMtx := cl.Centers.Clone;
+
+     PaintBox1.Canvas.Brush.Style := bsClear;
+     for cnt := 0 to aMtx.Width - 1 do
+     begin
+          x := Trunc(((aMtx[cnt, 0] - minXVal)*xDim));
+          y := Trunc(PaintBox1.Height - (aMtx[cnt, 1] - minYVal)*yDim);
+
+          assert((x >= 0) and (x <= PaintBox1.Width), 'Error x out of bounds');
+          assert((y >= 0) and (y <= PaintBox1.Height), 'Error y out of bounds');
+
+          PaintBox1.Canvas.Pen.Color := clMaroon;
+          PaintBox1.Canvas.Ellipse(x - 6, y - 6, x + 6, y + 6);
+     end;
+end;
+
+procedure PaintCLBoundary(cl : TCustomClassifier; polyLine : boolean);
 var map : Array of Array of integer;
     aMtx : TDoubleMatrix;
     xmpl : TMatrixExample;
     x, y : integer;
     pts : Array of TPoint;
     numPts : integer;
-const divisor : integer = 4;
+const divider : integer = 4;
+procedure OrderPts;
+var i, j : integer;
+    hlp : TPoint;
+    minIdx : integer;
+    minDist : double;
+    actDist : double;
 begin
-     if not Assigned(fSVMBmp) then
+     for i := 0 to numPts - 2 do
      begin
-          fSVMBmp := TBitmap.Create;
-          fSVMBmp.SetSize(PaintBox1.Width, PaintBox1.Height);
+          minIdx := i + 1;
+          minDist := sqr(pts[i].X - pts[i + 1].X) + sqr(pts[i].Y - pts[i + 1].Y);
+          for j := i + 2 to numPts - 1 do
+          begin
+               actDist := sqr(pts[i].X - pts[j].X) + sqr(pts[i].Y - pts[j].Y);
+               if minDist > actDist then
+               begin
+                    minIdx := j;
+                    minDist := actDist;
+               end;
+          end;
+
+          hlp := pts[i + 1];
+          pts[i + 1] := pts[minIdx];
+          pts[minIdx] := hlp; 
+     end;
+end;
+begin
+     if not Assigned(fClMapBmp) then
+     begin
+          fClMapBmp := TBitmap.Create;
+          fClMapBmp.SetSize(PaintBox1.Width, PaintBox1.Height);
 
           // classify each pixel and set it's color if neighbouring pixels are different
-          SetLength(map, PaintBox1.Height div divisor, PaintBox1.Width div divisor);
+          SetLength(map, PaintBox1.Height div divider, PaintBox1.Width div divider);
 
           aMtx := TDoubleMatrix.Create(1, 2);
           xmpl := TMatrixExample.Create(aMtx, false);
-          for y := 0 to PaintBox1.Height div divisor - 1 do
+
+          for y := 0 to PaintBox1.Height div divider - 1 do
           begin
-               for x := 0 to PaintBox1.Width div divisor - 1 do
+               for x := 0 to PaintBox1.Width div divider - 1 do
                begin
-                    aMtx[0, 0] := minXVal + divisor*x/xDim;
-                    aMtx[0, 1] := minYVal + divisor*y/yDim;
+                    aMtx.Vec[0] := minXVal + divider*x/xDim;
+                    aMtx.Vec[1] := minYVal + divider*y/yDim;
                     
-                    map[PaintBox1.Height div divisor - y - 1][x] := cl.Classify(xmpl);
+                    map[PaintBox1.Height div divider - y - 1][x] := cl.Classify(xmpl);
                end;
           end;
           xmpl.Free;
           aMtx.Free;
 
-          fSVMBmp.Canvas.Brush.Color := PaintBox1.Color;
-          fSVMBmp.Canvas.FillRect(Rect(0, 0, fSVMBmp.Width, fSVMBmp.Height));
-          
-          numPts := 0;
-          // check in x direction
-          SetLength(pts, (PaintBox1.Height div divisor)*(PaintBox1.Width div divisor));
-          for y := 1 to Length(map) - 1 do
-          begin
-               for x := 1 to Length(map[0]) - 1 do
-                   if ((map[y][x-1] <> map[y][x]) and (map[y][x-1] = -1)) or
-                      ((map[y-1][x] <> map[y][x]) and (map[y-1][x] = -1)) then
-                   begin
-                        pts[numPts].X := x*divisor;
-                        pts[numPts].Y := y*divisor;
-                        inc(numPts);
-                   end;
-          end;
+          fClMapBmp.Canvas.Brush.Color := PaintBox1.Color;
+          fClMapBmp.Canvas.FillRect(Rect(0, 0, fClMapBmp.Width, fClMapBmp.Height));
 
-          fSVMBmp.Canvas.Polyline(Copy(pts, 0, numPts));
+          fClMapBmp.Canvas.Brush.Color := clBlack;
+          fClMapBmp.canvas.Brush.Style := bsSolid;
+          
+          // check in x direction
+          if not polyLine then
+          begin
+               for y := 1 to Length(map) - 1 do
+               begin
+                    for x := 1 to Length(map[0]) - 1 do
+                        if (map[y][x-1] <> map[y][x]) or
+                           (map[y-1][x] <> map[y][x]) then
+                        begin
+                             fClMapBmp.Canvas.FillRect(Rect(x*divider - 1, 
+                                                            y*divider - 1,
+                                                            x*divider + 2, 
+                                                            y*divider + 2));
+                        end;
+               end;
+          end
+          else
+          begin
+               SetLength(pts, (PaintBox1.Height div divider)*(PaintBox1.Width div divider));
+
+               numPts := 0;
+               // check in x direction
+               for y := 1 to Length(map) - 1 do
+               begin
+                    for x := 1 to Length(map[0]) - 1 do
+                        if ((map[y][x-1] <> map[y][x])) or// and (map[y][x-1] = -1)) or
+                           ((map[y-1][x] <> map[y][x])) then // and (map[y-1][x] = -1)) then
+                        begin
+                             pts[numPts].X := x*divider;
+                             pts[numPts].Y := y*divider;
+                             inc(numPts);
+                        end;
+               end;
+
+               OrderPts;
+               
+               fClMapBmp.Canvas.Polyline(Copy(pts, 0, numPts));
+          end;
      end;
 
-     PaintBox1.Canvas.StretchDraw(PaintBox1.ClientRect, fSVMBmp);
+     PaintBox1.Canvas.StretchDraw(PaintBox1.ClientRect, fClMapBmp);
 end;
 
 begin
@@ -1062,9 +1116,15 @@ begin
      minXVal := minXVal - 0.05*(maxXVal - minXVal);
      minYVal := minYVal - 0.05*(maxYVal - minYVal);
 
-     if Assigned(fClassifier) and  (fClassifier is TSVMClassifier) then
-        PaintSVM(TSVMClassifier(fClassifier)); 
-     
+     if Assigned(fClassifier) and (fClassifier is TSVMClassifier) then
+        PaintCLBoundary(fClassifier, True); 
+
+     if Assigned(fClassifier) and (fClassifier is TRBFClassifier) then
+     begin
+          PaintCLBoundary(fClassifier, False); 
+
+          PaintRBFCenters(TRBFClassifier(fClassifier));
+     end;
 
      PaintBox1.Canvas.Brush.Style := bsSolid;
      // paint for each example one dot

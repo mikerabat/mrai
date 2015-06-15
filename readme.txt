@@ -21,6 +21,7 @@ The package includes:
 * Support Vector Machines (least squares and lagrangian learning)
 * Naive Bayes
 * Simple Decission stumps
+* Radial basis function
 * C4.5 Decission trees.
 * Ensemble classifiers: AdaBoost, Gentle Boost, Bagging
 

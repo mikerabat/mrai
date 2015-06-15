@@ -381,6 +381,8 @@ begin
               faStar[0, cnt] := 0;   // we do not want any component from a very small indices
      end;
 
+     if numVec = 0 then
+        raise ESVMLearnerException.Create('No support vector found.');
      SetLength(fVectIdx, NumVec);
 end;
 
@@ -483,7 +485,7 @@ begin
           augTrainSet.SetSubMatrix(x, 0, 1, augTrainSet.Height);
           col := tTrainSet.Mult(augTrainSet);
 
-          col.ScaleAndAddInPlace(fProps.scale, fProps.offset);
+          col.ScaleAndAddInPlace(fProps.offset, fProps.scale);
           col.ElementwiseFuncInPlace(TanhFunc);
 
           Result.SetColumn(x, col);

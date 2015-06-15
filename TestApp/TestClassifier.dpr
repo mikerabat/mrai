@@ -15,7 +15,7 @@
 program TestClassifier;
 
 uses
-  madExcept,
+  FastMM4 in 'D:\Daten\Delphi2010\3rdParty\FastMM4\FastMM4.pas',
   Forms,
   ufrmTestClassifier in 'ufrmTestClassifier.pas' {frmClassifierTest},
   ImageDataSet in '..\DataIO\ImageDataSet.pas',
@@ -46,7 +46,9 @@ uses
   BaseMatrixExamples in '..\BaseMatrixExamples.pas',
   ClassifierUtils in '..\ClassifierUtils.pas',
   DataSetTraining in '..\DataSetTraining.pas',
-  EnsembleClassifier in '..\EnsembleClassifier.pas';
+  EnsembleClassifier in '..\EnsembleClassifier.pas',
+  RBF in '..\SimpleClassifier\RBF.pas',
+  FastMM4Messages in 'D:\Daten\Delphi2010\3rdParty\FastMM4\FastMM4Messages.pas';
 
 {$R *.res}
 

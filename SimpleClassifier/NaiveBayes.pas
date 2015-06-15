@@ -46,7 +46,6 @@ type
 
   public
     function Classify(Example : TCustomExample; var confidence : double) : integer; overload; override;
-    function Classify(Example : TCustomExample) : integer; overload; override;
 
     // loading and saving procedures
     procedure OnLoadDoubleProperty(const Name : String; const Value : double); override;
@@ -244,12 +243,6 @@ begin
      end;
 end;
 
-function TNaiveBayes.Classify(Example: TCustomExample): integer;
-var conf : double;
-begin
-     Result := Classify(Example, conf);
-end;
-
 constructor TNaiveBayes.Create(const props: TNaiveBayesProps;
   const distr: TDoubleDynArrayArr; const clVals: TIntegerDynArray);
 begin
@@ -261,8 +254,7 @@ begin
 end;
 
 procedure TNaiveBayes.DefineProps;
-var
-  counter: Integer;
+var counter: Integer;
 begin
      inherited;
 

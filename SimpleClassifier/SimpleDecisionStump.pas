@@ -78,7 +78,7 @@ type
 
 implementation
 
-uses Math, Windows, SyncObjs, BaseMathPersistence;
+uses Math, Windows, SyncObjs, BaseMathPersistence, MatrixConst;
 
 const cDimensionProp = 'dimension';
       cThresholdProp = 'threshold';
@@ -165,9 +165,6 @@ var featureIdx : integer;
     wr : TWaitResult;
     SortIdx : TIntegerDynArray;
     minIdx : integer;
-type
-  TConstDoubleArr = Array[0..MaxInt div sizeof(double) - 1] of double;
-  PConstDoubleArr = ^TConstDoubleArr;
 begin
      while not Terminated do
      begin
