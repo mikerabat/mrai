@@ -23,6 +23,7 @@ The package includes:
 * Simple Decission stumps
 * Radial basis function
 * C4.5 Decission trees.
+* K-means
 * Ensemble classifiers: AdaBoost, Gentle Boost, Bagging
 
 On top of these classifiers there exists a few image database handling routines

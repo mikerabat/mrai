@@ -19,7 +19,7 @@ object frmClassifierTest: TfrmClassifierTest
   PixelsPerInch = 96
   TextHeight = 16
   object PaintBox1: TPaintBox
-    Left = 8
+    Left = 9
     Top = 152
     Width = 501
     Height = 433
@@ -147,11 +147,20 @@ object frmClassifierTest: TfrmClassifierTest
     object Button11: TButton
       Left = 320
       Top = 72
-      Width = 153
+      Width = 72
       Height = 25
       Caption = 'RBF'
       TabOrder = 8
       OnClick = Button11Click
+    end
+    object Button12: TButton
+      Left = 398
+      Top = 72
+      Width = 75
+      Height = 25
+      Caption = 'KMean'
+      TabOrder = 9
+      OnClick = Button12Click
     end
   end
   object GroupBox2: TGroupBox

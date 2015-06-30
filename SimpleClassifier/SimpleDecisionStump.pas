@@ -15,8 +15,8 @@
 unit SimpleDecisionStump;
 
 // #############################################################
-// #### Implementation of a simple
-// #### Boosting algorithms
+// #### Implementation of a simple decission stump for the
+// #### boosting algorithms
 // #############################################################
 
 interface

@@ -130,6 +130,8 @@ type
     function CalcSortIdx(featureIdx : integer) : TIntegerDynArray; overload;
     function CalcSortIdx(const dataSetIdx : TIntegerDynArray; featureIdx : integer) : TIntegerDynArray; overload;
 
+    procedure IdxQuickSort(const Values : TDoubleDynArray; var Idx : TIntegerDynArray; L, R : integer);
+
     function IndexOfClasses(var Idx : TIntIntArray; var classes : TIntegerDynArray) : integer;
   public
     procedure Init(DataSet : TCustomLearnerExampleList); virtual;
@@ -229,7 +231,7 @@ end;
 
 { TCustomWeightedLearner }
 
-procedure ExampleSort(const Values : TDoubleDynArray; var Idx : TIntegerDynArray; L, R : integer);
+procedure TCustomWeightedLearner.IdxQuickSort(const Values : TDoubleDynArray; var Idx : TIntegerDynArray; L, R : integer);
 var I, J: Integer;
     T: integer;
     P : double;
@@ -256,7 +258,7 @@ begin
            until I > J;
 
            if L < J then
-              ExampleSort(Values, Idx, L, J);
+              IdxQuickSort(Values, Idx, L, J);
            L := I;
      until I >= R;
 end;
@@ -277,7 +279,7 @@ begin
           values[j] := DataSet[j].FeatureVec[featureIdx];
      end;
 
-     ExampleSort(Values, Result, 0, DataSet.Count - 1);
+     IdxQuickSort(Values, Result, 0, DataSet.Count - 1);
 end;
 
 function TCustomWeightedLearner.CalcSortIdx(const dataSetIdx: TIntegerDynArray;
@@ -296,7 +298,7 @@ begin
           values[j] := DataSet[dataSetIdx[j]].FeatureVec[featureIdx];
      end;
 
-     ExampleSort(values, Result, 0, Length(dataSetIdx) - 1);
+     IdxQuickSort(values, Result, 0, Length(dataSetIdx) - 1);
 end;
 
 function TCustomWeightedLearner.IndexOfClasses(var Idx: TIntIntArray;

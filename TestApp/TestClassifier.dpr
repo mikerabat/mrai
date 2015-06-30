@@ -46,7 +46,8 @@ uses
   ClassifierUtils in '..\ClassifierUtils.pas',
   DataSetTraining in '..\DataSetTraining.pas',
   EnsembleClassifier in '..\EnsembleClassifier.pas',
-  RBF in '..\SimpleClassifier\RBF.pas';
+  RBF in '..\SimpleClassifier\RBF.pas',
+  kmeans in '..\SimpleClassifier\kmeans.pas';
 
 {$R *.res}
 

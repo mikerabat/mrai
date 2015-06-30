@@ -15,7 +15,7 @@ unit ufrmTestClassifier;
 
 interface
 
-{$DEFINE INITRANDSEED}  // uncomment if you do not want the same train set 
+{.$DEFINE INITRANDSEED}  // uncomment if you do not want the same train set 
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
@@ -59,6 +59,7 @@ type
     btnNaiveBayes: TButton;
     chkAutoMerge: TCheckBox;
     Button11: TButton;
+    Button12: TButton;
     procedure Button1Click(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -76,6 +77,7 @@ type
     procedure butC45Click(Sender: TObject);
     procedure btnNaiveBayesClick(Sender: TObject);
     procedure Button11Click(Sender: TObject);
+    procedure Button12Click(Sender: TObject);
   private
     { Private-Deklarationen }
     fFace1, fFace2 : TBitmap;
@@ -115,7 +117,8 @@ uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
      ImageDataSet, ImageMatrixConv, jpeg, IncrementalImageDataSet,
      IncrementalFischerLDA, FischerIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
-     BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF;
+     BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF, 
+     kmeans;
 
 {$R *.dfm}
 
@@ -258,6 +261,7 @@ var learner : TNaiveBayesLearner;
 begin
      if Assigned(fExamples) then
      begin
+          FreeAndNil(fClMapBmp);
           fClassifier.Free;
 
           props.HistoMin := fMinVal;
@@ -370,6 +374,36 @@ begin
      TestLearnError;
 end;
 
+procedure TfrmClassifierTest.Button12Click(Sender: TObject);
+var learner : TKMeansLearner;
+    props : TKMeansProps;
+begin
+     if Assigned(fExamples) then
+     begin
+          fClassifier.Free;
+          FreeAndNil(fClMapBmp);
+
+          props.numCluster := 4;
+          props.searchPerClass := False;
+          props.useMedian := True;
+          props.MaxNumIter := 100;
+          props.centChangePerc := 0.01;
+          props.initCluster := ciKmeansPlusPlus;          
+
+          learner := TKMeansLearner.Create;
+          try
+             learner.SetProps(props);
+             learner.Init(fExamples);
+             fClassifier := learner.Learn;
+          finally
+                 learner.Free;
+          end;
+     end;
+
+     PaintBox1.Repaint;
+     TestLearnError;
+end;
+
 procedure TfrmClassifierTest.butAdaBoostLoadClick(Sender: TObject);
 var haar2DClassifier : THaar2DAdaBoost;
 begin
@@ -407,6 +441,8 @@ var learner : TC45Learner;
 begin
      if Assigned(fExamples) then
      begin
+          FreeAndNil(fClMapBmp);
+          
           props.LearnType := ltPrune;
           props.ValidationsetSize := 0.0;
           props.UseValidationSet := True;
@@ -450,6 +486,7 @@ var learner : TDecisionStumpLearner;
 begin
      if Assigned(fExamples) then
      begin
+          FreeAndNil(fClMapBmp);
           fClassifier.Free;
           learner := TDecisionStumpLearner.Create;
           try
@@ -470,6 +507,7 @@ var learner : TDiscreteAdaBoostLearner;
 begin
      if Assigned(fExamples) then
      begin
+          FreeAndNil(fClMapBmp);
           fClassifier.Free;
 
           learner := TDiscreteAdaBoostLearner.Create;
@@ -498,6 +536,7 @@ var learner : TGentleBoostLearner;
 begin
      if Assigned(fExamples) then
      begin
+          FreeAndNil(fClMapBmp);
           fClassifier.Free;
 
           learner := TGentleBoostLearner.Create;
@@ -526,6 +565,7 @@ var learner : TVotedBaggingLearner;
 begin
      if Assigned(fExamples) then
      begin
+          FreeAndNil(fClMapBmp);
           fClassifier.Free;
 
           learner := TVotedBaggingLearner.Create;
@@ -554,6 +594,7 @@ var learner : TFisherBatchLDALearner;
 begin
      if Assigned(fExamples) then
      begin
+          FreeAndNil(fClMapBmp);
           fClassifier.Free;
 
           learner := TFisherBatchLDALearner.Create;
@@ -978,6 +1019,23 @@ begin
      end;
 end;
 
+procedure PaintKMeansCenters(cl : TKMeans);
+var aMtx : IMatrix;
+    cnt: Integer;
+begin
+     aMtx := cl.Centers.Clone;
+
+     PaintBox1.Canvas.Brush.Style := bsClear;
+     for cnt := 0 to aMtx.Width - 1 do
+     begin
+          x := Trunc(((aMtx[cnt, 0] - minXVal)*xDim));
+          y := Trunc(PaintBox1.Height - (aMtx[cnt, 1] - minYVal)*yDim);
+
+          PaintBox1.Canvas.Pen.Color := clMaroon;
+          PaintBox1.Canvas.Ellipse(x - 6, y - 6, x + 6, y + 6);
+     end;
+end;
+
 procedure PaintCLBoundary(cl : TCustomClassifier; polyLine : boolean);
 var map : Array of Array of integer;
     aMtx : TDoubleMatrix;
@@ -992,11 +1050,13 @@ var i, j : integer;
     minIdx : integer;
     minDist : double;
     actDist : double;
+    sortIdx : integer;
 begin
      for i := 0 to numPts - 2 do
      begin
           minIdx := i + 1;
           minDist := sqr(pts[i].X - pts[i + 1].X) + sqr(pts[i].Y - pts[i + 1].Y);
+          sortIdx := i + 2;
           for j := i + 2 to numPts - 1 do
           begin
                actDist := sqr(pts[i].X - pts[j].X) + sqr(pts[i].Y - pts[j].Y);
@@ -1004,6 +1064,14 @@ begin
                begin
                     minIdx := j;
                     minDist := actDist;
+               end
+               else if minDist = actDist then
+               begin
+                    // make it the next point to proceed
+                    hlp := pts[j];
+                    pts[j] := pts[sortIdx];
+                    pts[sortIdx] := hlp;
+                    inc(sortIdx);
                end;
           end;
 
@@ -1040,7 +1108,7 @@ begin
           fClMapBmp.Canvas.Brush.Color := PaintBox1.Color;
           fClMapBmp.Canvas.FillRect(Rect(0, 0, fClMapBmp.Width, fClMapBmp.Height));
 
-          fClMapBmp.Canvas.Brush.Color := clBlack;
+          fClMapBmp.Canvas.Brush.Color := clDkGray;
           fClMapBmp.canvas.Brush.Style := bsSolid;
           
           // check in x direction
@@ -1068,8 +1136,8 @@ begin
                for y := 1 to Length(map) - 1 do
                begin
                     for x := 1 to Length(map[0]) - 1 do
-                        if ((map[y][x-1] <> map[y][x])) or// and (map[y][x-1] = -1)) or
-                           ((map[y-1][x] <> map[y][x])) then // and (map[y-1][x] = -1)) then
+                        if ((map[y][x-1] <> map[y][x])) or
+                           ((map[y-1][x] <> map[y][x])) then 
                         begin
                              pts[numPts].X := x*divider;
                              pts[numPts].Y := y*divider;
@@ -1079,6 +1147,7 @@ begin
 
                OrderPts;
                
+               fClMapBmp.Canvas.Pen.Color := clDkGray;
                fClMapBmp.Canvas.Polyline(Copy(pts, 0, numPts));
           end;
      end;
@@ -1116,15 +1185,14 @@ begin
      minXVal := minXVal - 0.05*(maxXVal - minXVal);
      minYVal := minYVal - 0.05*(maxYVal - minYVal);
 
-     if Assigned(fClassifier) and (fClassifier is TSVMClassifier) then
-        PaintCLBoundary(fClassifier, True); 
+     if Assigned(fClassifier) then
+        PaintCLBoundary(fClassifier, not ((fClassifier is TRBFClassifier) or (fClassifier is TC45Classifier)));
 
      if Assigned(fClassifier) and (fClassifier is TRBFClassifier) then
-     begin
-          PaintCLBoundary(fClassifier, False); 
+        PaintRBFCenters(TRBFClassifier(fClassifier));
 
-          PaintRBFCenters(TRBFClassifier(fClassifier));
-     end;
+     if Assigned(fClassifier) and (fClassifier is TKMeans) then
+        PaintKMeansCenters(TKMeans( fClassifier ) );
 
      PaintBox1.Canvas.Brush.Style := bsSolid;
      // paint for each example one dot
