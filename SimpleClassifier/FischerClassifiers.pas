@@ -116,7 +116,7 @@ type
 implementation
 
 uses Classes, FischerBatchLDA, Math, LinearAlgebraicEquations, MatrixConst,
-     ClassifierUtils, BaseMatrixExamples, ImageMatrixConv, Graphics, Utilities;
+     ClassifierUtils, BaseMatrixExamples, ImageMatrixConv, Graphics, MathUtilFunc;
 
 const cPCAMatrix = 'U';
       cPCAMean = 'meanU';

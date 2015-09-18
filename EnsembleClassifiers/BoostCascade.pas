@@ -95,7 +95,7 @@ type
 
 implementation
 
-uses SimpleDecisionStump, AdaBoost, contnrs, math, types, utilities;
+uses SimpleDecisionStump, AdaBoost, contnrs, math, types, MathUtilFunc;
 
 const cBoostCascadeRefClassVal = 'boostCascadeRefCl';
       cBoostCascadeCascade = 'boostCascadeArr';

@@ -116,7 +116,7 @@ type
 
 implementation
 
-uses BaseMatrixExamples, MatrixConst, Math, Utilities;
+uses BaseMatrixExamples, MatrixConst, Math, MathUtilFunc;
 
 // ###########################################
 // #### RBF Classifier
