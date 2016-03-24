@@ -172,7 +172,7 @@ var imgData : TDoubleMatrix;
     classVals : TIntegerDynArray;
     unusedIdx : TIntegerDynArray;
     example : TMatrixLearnerExample;
-    idx1, idx2 : integer;
+    idx1 : integer;
     classImg : TDoubleMatrixDynArr;
     actClass : integer;
     numElem : integer;
@@ -275,14 +275,13 @@ begin
         // #### Load the rest -> incrementaly
         if fLoadStrategy = lsRandom then
         begin
-             for i := 0 to 2*Length(unusedIdx) - 1 do
+             for i := Length(unusedIdx) - 1 downto 0 do
              begin
-                  idx1 := Random(Length(unusedIdx));
-                  idx2 := Random(Length(unusedIdx));
+                  idx1 := fRndEng.RandInt(i + 1);
 
                   actIdx := unusedIdx[idx1];
-                  unusedIdx[idx1] := unusedIdx[idx2];
-                  unusedIdx[idx2] := actIdx;
+                  unusedIdx[idx1] := unusedIdx[i];
+                  unusedIdx[i] := actIdx;
              end;
         end;
         if Assigned(fOnLoadExample) and (fLoadStrategy in [lsRandom, lsOneByOne]) then

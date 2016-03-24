@@ -38,7 +38,6 @@ contains
   BaseClassifier in 'BaseClassifier.pas',
   BaseIncrementalLearner in 'BaseIncrementalLearner.pas',
   BaseMatrixExamples in 'BaseMatrixExamples.pas',
-  ClassifierUtils in 'ClassifierUtils.pas',
   FischerIncrementalClassifiers in 'IncrementalClassifier\FischerIncrementalClassifiers.pas',
   IncrementalFischerLDA in 'IncrementalClassifier\IncrementalFischerLDA.pas',
   DecisionTree45 in 'SimpleClassifier\DecisionTree45.pas',
@@ -59,6 +58,9 @@ contains
   Haar1D in 'FeatureExtractors\Haar1D.pas',
   Haar1DLearner in 'FeatureExtractors\Haar1DLearner.pas',
   Haar2D in 'FeatureExtractors\Haar2D.pas',
-  IntegralImg in 'FeatureExtractors\IntegralImg.pas';
+  IntegralImg in 'FeatureExtractors\IntegralImg.pas',
+  kmeans in 'SimpleClassifier\kmeans.pas',
+  NeuralNetwork in 'SimpleClassifier\NeuralNetwork.pas',
+  RBF in 'SimpleClassifier\RBF.pas';
 
 end.

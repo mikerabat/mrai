@@ -60,6 +60,7 @@ type
     chkAutoMerge: TCheckBox;
     Button11: TButton;
     Button12: TButton;
+    butNeuralNet: TButton;
     procedure Button1Click(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -78,6 +79,7 @@ type
     procedure btnNaiveBayesClick(Sender: TObject);
     procedure Button11Click(Sender: TObject);
     procedure Button12Click(Sender: TObject);
+    procedure butNeuralNetClick(Sender: TObject);
   private
     { Private-Deklarationen }
     fFace1, fFace2 : TBitmap;
@@ -118,7 +120,7 @@ uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
      IncrementalFischerLDA, FischerIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
      BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF, 
-     kmeans;
+     kmeans, NeuralNetwork;
 
 {$R *.dfm}
 
@@ -373,6 +375,46 @@ begin
      PaintBox1.Repaint;
      TestLearnError;
 end;
+
+procedure TfrmClassifierTest.butNeuralNetClick(Sender: TObject);
+var learner : TNeuralNetLearner;
+    props : TNeuralNetProps;
+begin
+     if Assigned(fExamples) then
+     begin
+          fClassifier.Free;
+          FreeAndNil(fClMapBmp);
+
+          props.learnAlgorithm := nnBackprop;
+          props.outputLayer := ntLinear;
+
+          SetLength(props.layers, 2);
+          props.layers[0].NumNeurons := 3;
+          props.layers[0].NeuronType := ntTanSigmoid;
+          props.layers[1].NumNeurons := 5;
+          props.layers[1].NeuronType := ntExpSigmoid;
+          props.eta := 0.001;
+
+          props.numMinDeltaErr := 10;
+          props.stopOnMinDeltaErr := 1e-4;
+          props.maxNumIter := 4000;
+          props.minNumIter := 200;
+
+          learner := TNeuralNetLearner.Create;
+          try
+             learner.SetProps(props);
+             learner.Init(fExamples);
+             fClassifier := learner.Learn;
+          finally
+                 learner.Free;
+          end;
+     end;
+
+     PaintBox1.Repaint;
+     TestLearnError;
+end;
+
+
 
 procedure TfrmClassifierTest.Button12Click(Sender: TObject);
 var learner : TKMeansLearner;

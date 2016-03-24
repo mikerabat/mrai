@@ -129,7 +129,7 @@ object frmClassifierTest: TfrmClassifierTest
     object butC45: TButton
       Left = 479
       Top = 32
-      Width = 153
+      Width = 42
       Height = 25
       Caption = 'C4.5'
       TabOrder = 6
@@ -161,6 +161,15 @@ object frmClassifierTest: TfrmClassifierTest
       Caption = 'KMean'
       TabOrder = 9
       OnClick = Button12Click
+    end
+    object butNeuralNet: TButton
+      Left = 527
+      Top = 32
+      Width = 105
+      Height = 25
+      Caption = 'Neural Network'
+      TabOrder = 10
+      OnClick = butNeuralNetClick
     end
   end
   object GroupBox2: TGroupBox

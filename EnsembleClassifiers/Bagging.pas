@@ -60,7 +60,7 @@ type
 
 implementation
 
-uses Math, ClassifierUtils;
+uses Math;
 
 // ##################################################################
 // #### Local definitions
@@ -182,7 +182,7 @@ begin
 
         balancedTrainSet := nil;
         if fProps.BalanceOnlyOneTime and fProps.balanced then
-           balancedTrainSet := CreateBalancedDataSet(DataSet);
+           balancedTrainSet := DataSet.CreateBalancedDataSet;
 
         try
            for i := 0 to fProps.NumRounds - 1 do
@@ -192,12 +192,12 @@ begin
                 begin
                      if Assigned(balancedTrainSet)
                      then
-                         trainSet := CreateRandomDataSet(balancedTrainSet, fProps.LearnDataSetPercentage)
+                         trainSet := balancedTrainSet.CreateRandomDataSet(fProps.LearnDataSetPercentage)
                      else
-                         trainSet := CreateRandomizedBalancedDataSet(DataSet, fProps.LearnDataSetPercentage);
+                         trainSet := DataSet.CreateRandomizedBalancedDataSet(fProps.LearnDataSetPercentage);
                 end
                 else
-                    TrainSet := CreateRandomDataSet(DataSet, fProps.LearnDataSetPercentage);
+                    TrainSet := DataSet.CreateRandomDataSet(fProps.LearnDataSetPercentage);
 
                 try
                    assert(Assigned(TrainSet), 'error no training set created');

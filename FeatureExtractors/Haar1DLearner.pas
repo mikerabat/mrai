@@ -118,7 +118,7 @@ end;
 function T1DHaarExampleCreator.BuildLerningExmapleList(OnlyReference : boolean) : TCustomLearnerExampleList;
 var i : integer;
 begin
-     Result := TCustomLearnerExampleList.Create(True);
+     Result := TCustomLearnerExampleList.Create;
 
      for i := 0 to fExampleList.Count - 1 do
          Result.Add(T1DHaarExample(fExampleList[i]).Clone(OnlyReference));

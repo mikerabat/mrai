@@ -21,7 +21,7 @@ unit BaseClassifier;
 
 interface
 
-uses SysUtils, Classes, Contnrs, Types, BaseMathPersistence;
+uses SysUtils, Classes, Contnrs, Types, BaseMathPersistence, RandomEng;
 
 type
   TOnLearnIteration = procedure(Sender : TObject; progress : integer) of Object;
@@ -81,13 +81,28 @@ type
 type
   TCustomLearnerExampleList = class(TObjectList)
   private
+    fRandomAlg : TRandomAlgorithm;
+    fRandom : TRandomGenerator;
+
+    function InternalRandomDataSet(LearningSet : TCustomLearnerExampleList; StartIdx, EndIdx : integer; numElements : integer) : TCustomLearnerExampleList;
+    function Rand : TRandomGenerator;
+    procedure SetRandomAlg(const Value: TRandomAlgorithm);
+
     function GetExample(index : integer) : TCustomLearnerExample; virtual;
     procedure SetExample(index : integer; Value : TCustomLearnerExample);
   public
+    function CreateBalancedDataSet : TCustomLearnerExampleList;
+    function CreateRandomDataSet(Percentage : integer) : TCustomLearnerExampleList;
+    function CreateRandomizedBalancedDataSet(Percentage : integer) : TCustomLearnerExampleList;
+
     property Example[index : integer] : TCustomLearnerExample read GetExample write SetExample; default;
     procedure Add(Exmpl : TCustomLearnerExample);
 
     function NumClasses(var classVals : TIntegerDynArray) : integer;
+
+    property RandomAlg : TRandomAlgorithm read fRandomAlg write SetRandomAlg;
+    constructor Create;
+    destructor Destroy; override;
   end;
 
 // #############################################################
@@ -133,6 +148,7 @@ type
     procedure IdxQuickSort(const Values : TDoubleDynArray; var Idx : TIntegerDynArray; L, R : integer);
 
     function IndexOfClasses(var Idx : TIntIntArray; var classes : TIntegerDynArray) : integer;
+    function Classes : TIntegerDynArray;
   public
     procedure Init(DataSet : TCustomLearnerExampleList); virtual;
     function Learn(const weights : Array of double) : TCustomClassifier; overload;
@@ -153,6 +169,8 @@ type
   TCustomLearnerClass = class of TCustomLearner;
 
 implementation
+
+uses Math;
 
 { TCustomExampleList }
 
@@ -229,6 +247,234 @@ begin
      Items[index] := Value;
 end;
 
+constructor TCustomLearnerExampleList.Create;
+begin
+     inherited Create(True);
+
+     fRandomAlg := raMersenneTwister;
+end;
+
+function TCustomLearnerExampleList.InternalRandomDataSet(LearningSet : TCustomLearnerExampleList; StartIdx, EndIdx : integer; numElements : integer) : TCustomLearnerExampleList;
+var idx : Array of integer;
+    i : Integer;
+    index : integer;
+    len : integer;
+    tmp : integer;
+begin
+     // ensure that no double entries exists
+     SetLength(idx, EndIdx - StartIdx + 1);
+     for i := StartIdx to EndIdx do
+         idx[i - StartIdx] := i;
+
+     len := Length(idx);
+
+     // Fisher yates shuffle:
+     for i := Length(idx) - 1 downto 1 do
+     begin
+          index := Rand.RandInt(i + 1);
+
+          tmp := idx[index];
+          idx[index] := idx[i];
+          idx[i] := tmp;
+     end;
+
+     // now create the resulting array
+     Result := LearningSet.ClassType.Create as TCustomLearnerExampleList;
+     Result.OwnsObjects := False;
+     Result.Capacity := len;
+     for i := 0 to numElements - 1 do
+         Result.Add(LearningSet[idx[i]]);
+end;
+
+function TCustomLearnerExampleList.CreateRandomDataSet(Percentage : integer) : TCustomLearnerExampleList;
+var numElements : integer;
+begin
+     Result := nil;
+     numElements := Min(Count, (Percentage*Count) div 100);
+     if numElements < 0 then
+        exit;
+
+     Result := InternalRandomDataSet(self, 0, Count - 1, numElements);
+end;
+
+function ClassSort(Item1, Item2 : Pointer) : integer;
+begin
+     Result := TCustomLearnerExample(Item1).ClassVal - TCustomLearnerExample(Item2).ClassVal;
+end;
+
+function TCustomLearnerExampleList.CreateBalancedDataSet : TCustomLearnerExampleList;
+var classes : Array of integer;
+    numClasses : integer;
+    i : integer;
+    copyList : TCustomLearnerExampleList;
+    minNumElem : integer;
+    actNumElem : integer;
+    actClass : integer;
+begin
+     Result := nil;
+     if Count = 0 then
+        exit;
+
+     // we only want to store references to the examples in the new data set
+     copyList := ClassType.Create as TCustomLearnerExampleList;
+     try
+        copyList.OwnsObjects := False;
+        copyList.Capacity := Count;
+
+        // first check out the number of classes and the number of elements belonging to these classes
+        for i := 0 to Count - 1 do
+            copyList.Add(Example[i]);
+        copyList.Sort(ClassSort);
+
+        SetLength(classes, 10);
+        numClasses := 1;
+        classes[0] := 1;
+
+        for i := 1 to copyList.Count - 1 do
+        begin
+             if copyList[i].ClassVal <> copyList[i - 1].ClassVal then
+             begin
+                  inc(NumClasses);
+
+                  if NumClasses >= Length(classes) then
+                     SetLength(classes, Min(2*Length(classes), Length(classes) + 1000));
+             end;
+
+             inc(classes[numClasses - 1]);
+        end;
+
+        // search for the class with the lowest number of elements
+        minNumElem := classes[0];
+        for i := 1 to numClasses - 1 do
+            minNumElem := Min(minNumElem, classes[i]);
+
+        // create the resulting list:
+        Result := ClassType.Create as TCustomLearnerExampleList;
+        Result.OwnsObjects := False;
+        Result.Capacity := minNumElem*numClasses;
+
+        actNumElem := 0;
+        actClass := 0;
+        for i := 0 to copyList.Count - 1 do
+        begin
+             if actNumElem = classes[actClass] then
+             begin
+                  inc(actClass);
+                  actNumElem := 0;
+             end;
+
+             if actNumElem < minNumElem then
+                Result.Add(copyList[i]);
+
+             inc(actNumElem);
+        end;
+     finally
+            copyList.Free;
+     end;
+end;
+
+function TCustomLearnerExampleList.CreateRandomizedBalancedDataSet(Percentage : integer) : TCustomLearnerExampleList;
+var classes : Array of integer;
+    numClasses : integer;
+    i, j : integer;
+    copyList : TCustomLearnerExampleList;
+    minNumElem : integer;
+    actNumElem : integer;
+    actClass : integer;
+    list : TCustomLearnerExampleList;
+begin
+     Result := nil;
+     if Count = 0 then
+        exit;
+
+     // we only want to store references to the examples in the new data set
+     copyList := ClassType.Create as TCustomLearnerExampleList;
+     try
+        copyList.OwnsObjects := False;
+        copyList.Capacity := Count;
+
+        // first check out the number of classes and the number of elements belonging to these classes
+        for i := 0 to Count - 1 do
+            copyList.Add(Example[i]);
+        copyList.Sort(ClassSort);
+
+        SetLength(classes, 10);
+        numClasses := 1;
+        classes[0] := 1;
+
+        for i := 1 to copyList.Count - 1 do
+        begin
+             if copyList[i].ClassVal <> copyList[i - 1].ClassVal then
+             begin
+                  inc(NumClasses);
+
+                  if NumClasses >= Length(classes) then
+                     SetLength(classes, Min(2*Length(classes), Length(classes) + 1000));
+             end;
+
+             inc(classes[numClasses - 1]);
+        end;
+
+        // search for the class with the lowest number of elements
+        minNumElem := classes[0];
+        for i := 1 to numClasses - 1 do
+            minNumElem := Min(minNumElem, classes[i]);
+
+        minNumElem := (minNumElem*Max(0, Min(100, Percentage))) div 100;
+
+        // create the resulting list:
+        Result := ClassType.Create as TCustomLearnerExampleList;
+        Result.OwnsObjects := False;
+        Result.Capacity := minNumElem*numClasses;
+
+        actNumElem := 0;
+        actClass := 0;
+        for i := 0 to numClasses - 1 do
+        begin
+             // this line ensures that consecutive calls to this routine does not result in the same resulting dataset
+             list := InternalRandomDataSet(copyList, actNumElem, actNumElem + Classes[actClass] - 1, minNumElem);
+             try
+                for j := 0 to list.Count - 1 do
+                    Result.Add(list[j]);
+             finally
+                    list.Free;
+             end;
+             inc(actNumElem, Classes[actClass]);
+             inc(actClass);
+        end;
+     finally
+            copyList.Free;
+     end;
+end;
+
+function TCustomLearnerExampleList.Rand: TRandomGenerator;
+begin
+     if not Assigned(fRandom) then
+     begin
+          fRandom := TRandomGenerator.Create;
+          fRandom.RandMethod := RandomAlg;
+          fRandom.Init(0);
+     end;
+
+     Result := fRandom;
+end;
+
+
+procedure TCustomLearnerExampleList.SetRandomAlg(const Value: TRandomAlgorithm);
+begin
+     fRandomAlg := Value;
+
+     if Assigned(fRandom) then
+        FreeAndNil(fRandom);
+end;
+
+destructor TCustomLearnerExampleList.Destroy;
+begin
+     fRandom.Free;
+
+     inherited;
+end;
+
 { TCustomWeightedLearner }
 
 procedure TCustomWeightedLearner.IdxQuickSort(const Values : TDoubleDynArray; var Idx : TIntegerDynArray; L, R : integer);
@@ -299,6 +545,44 @@ begin
      end;
 
      IdxQuickSort(values, Result, 0, Length(dataSetIdx) - 1);
+end;
+
+function TCustomWeightedLearner.Classes: TIntegerDynArray;
+var counter, clsCnt : integer;
+    found : boolean;
+    actClass : integer;
+    numClasses : integer;
+begin
+     SetLength(Result, 10);
+     numClasses := 0;
+
+     // #########################################################
+     // #### store class indicess in the output array
+     for counter := 0 to DataSet.Count - 1 do
+     begin
+          found := False;
+          actClass := DataSet[counter].ClassVal;
+
+          for clsCnt := 0 to numClasses - 1 do
+          begin
+               if actClass = Result[clsCnt] then
+               begin
+                    found := True;
+                    break;
+               end;
+          end;
+
+          if not Found then
+          begin
+               if Length(Result) - 1 <= numClasses then
+                  SetLength(Result, Length(Result)*2);
+
+               Result[numClasses] := actClass;
+               inc(numClasses);
+          end;
+     end;
+
+     SetLength(Result, numClasses);
 end;
 
 function TCustomWeightedLearner.IndexOfClasses(var Idx: TIntIntArray;

@@ -124,7 +124,7 @@ constructor TMatrixLearnerExampleList.Create(AItemList: TDoubleMatrix;
   ClassVals: array of Integer; OwnsMatrix : boolean);
 var i : integer;
 begin
-     inherited Create(true);
+     inherited Create;
 
      assert(Length(ClassVals) = AItemList.Width, 'Dimension Error');
      fOwnsMatrix := ownsMatrix;

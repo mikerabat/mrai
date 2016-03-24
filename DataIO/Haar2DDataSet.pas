@@ -20,7 +20,8 @@ unit Haar2DDataSet;
 
 interface
 
-uses Windows, SysUtils, Contnrs, BaseClassifier, IntegralImg, Haar2D, Matrix;
+uses Windows, SysUtils, Contnrs, BaseClassifier, IntegralImg, Haar2D,
+     Matrix, RandomEng;
 
 type
   THaar2DLearnerList = class(TCustomLearnerExampleList)
@@ -45,6 +46,7 @@ type
     fWinHeight : integer;
     fLearnerList : THaar2DLearnerList;
     fIntImg : TIntegralImage;                    // holds a refernce to the last added integral image
+    fRndEng : TRandomGenerator;
 
     fRefFeatureList : THaar2DRefFeatureList;
     procedure Haar2DImgLoad(Sender : TObject; mtx : TDoubleMatrix; actNum, NumImags : integer; const FileName : string);
@@ -128,6 +130,12 @@ end;
 
 constructor THaar2DLearnerExampleListCreator.Create(winWidth, winHeight : integer; numColPlane : integer; featureList : TIntegralType);
 begin
+     inherited Create;
+
+     fRndEng := TRandomGenerator.Create;
+     fRndEng.RandMethod := raMersenneTwister;
+     fRndEng.Init(0);
+
      fWinWidth := winWidth;
      fWinHeight := winHeight;
 
@@ -139,6 +147,7 @@ destructor THaar2DLearnerExampleListCreator.Destroy;
 begin
      fLearnerList.Free;
      fRefFeatureList.Free;
+     fRndEng.Free;
 
      inherited;
 end;
@@ -286,8 +295,8 @@ begin
              begin
                   numIter := 0;
                   repeat
-                        rc.Left := Random(m.Width - w - 1);
-                        rc.Top := Random(m.Height - h - 1);
+                        rc.Left := fRndEng.RandInt(m.Width - w - 1);
+                        rc.Top := fRndEng.RandInt(m.Height - h - 1);
                         inc(numIter);
 
                         rc.Right := rc.left + w - 1;
@@ -329,7 +338,7 @@ constructor THaar2DLearnerList.Create;
 begin
      fIntImages := TObjectList.Create(True);
 
-     inherited Create(True);
+     inherited Create;
 end;
 
 destructor THaar2DLearnerList.Destroy;

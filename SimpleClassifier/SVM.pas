@@ -768,4 +768,7 @@ begin
          Result := inherited OnLoadObject(Name, Obj);
 end;
 
+initialization
+   RegisterMathIO(TSVMClassifier);
+
 end.

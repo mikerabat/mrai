@@ -43,11 +43,11 @@ uses
   BaseClassifier in '..\BaseClassifier.pas',
   BaseIncrementalLearner in '..\BaseIncrementalLearner.pas',
   BaseMatrixExamples in '..\BaseMatrixExamples.pas',
-  ClassifierUtils in '..\ClassifierUtils.pas',
   DataSetTraining in '..\DataSetTraining.pas',
   EnsembleClassifier in '..\EnsembleClassifier.pas',
   RBF in '..\SimpleClassifier\RBF.pas',
-  kmeans in '..\SimpleClassifier\kmeans.pas';
+  kmeans in '..\SimpleClassifier\kmeans.pas',
+  NeuralNetwork in '..\SimpleClassifier\NeuralNetwork.pas';
 
 {$R *.res}
 

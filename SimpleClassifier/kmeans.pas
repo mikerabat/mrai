@@ -65,7 +65,7 @@ type
    fclIdx : TIntIntArray;
    fclassVals : TIntegerDynArray;
    fData : TDoubleMatrix;
-    
+
    function MatrixDataSet(out ownsObj : boolean) : TDoubleMatrix;
    function RandomClassCenters(var centerClassVals : TIntegerDynArray) : IMatrix;
    function KMeanPPClassCenters(var centerClassVals : TIntegerDynArray) : IMatrix;
@@ -635,5 +635,8 @@ begin
           end;
      end;
 end;
+
+initialization
+  RegisterMathIO(TKMeans);
 
 end.

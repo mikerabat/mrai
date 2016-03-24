@@ -513,7 +513,7 @@ procedure TRadialBasisLearner.RBFCenterRandom;
 var sortIdx : TIntegerDynArray;
     counter : integer;
     randCnt : integer;
-    idx, idx1, idx2 : integer;
+    idx, idx1 : integer;
     itemIdx : integer;
     tmp : integer;
     numItems : integer;
@@ -540,14 +540,13 @@ begin
           // the first randomCenterPerc*Length items out of it.
           sortIdx := Copy(fclIdx[counter], 0, Length(fclIdx[counter]));
 
-          for randCnt := 0 to 2*Length(sortIdx) - 1 do
+          for randCnt := Length(sortIdx) - 1 downto 0 do
           begin
-               idx1 := random(Length(SortIdx));
-               idx2 := random(Length(SortIdx));
+               idx1 := random(randCnt + 1);
 
                tmp := sortIdx[idx1];
-               sortIdx[idx1] := sortIdx[idx2];
-               sortIdx[idx2] := tmp;
+               sortIdx[idx1] := sortIdx[randCnt];
+               sortIdx[randCnt] := tmp;
           end;
           
           // ###########################################
@@ -668,5 +667,8 @@ procedure TRadialBasisLearner.SetProps(const props: TRBFProperties);
 begin
      fProps := props;
 end;
+
+initialization
+  RegisterMathIO(TRBFClassifier);
 
 end.

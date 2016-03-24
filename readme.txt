@@ -25,6 +25,7 @@ The package includes:
 * C4.5 Decission trees.
 * K-means
 * Ensemble classifiers: AdaBoost, Gentle Boost, Bagging
+* Simple feed forward Neural Nets
 
 On top of these classifiers there exists a few image database handling routines
 and an 1D, 2D Haar Feature extractor which is based on an integral image approach.

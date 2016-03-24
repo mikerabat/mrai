@@ -21,7 +21,7 @@ unit BoostCascade;
 
 interface
 
-uses SysUtils, BaseClassifier, BaseMathPersistence, CustomBooster;
+uses SysUtils, BaseClassifier, BaseMathPersistence, CustomBooster, RandomEng;
 
 type
   TCustomBoostArr = Array of TCustomBoostingClassifier;
@@ -81,6 +81,7 @@ type
    fProps : TCascadeBoostProps;
    fValidationSet : TCustomLearnerExampleList;
    fLearnerCreate : TLearnerCreate;
+   fRndEng : TRandomGenerator;
 
    procedure AdjustBOnValidationSet(cl : TCustomClassifier; const desiredD : double; var F, D : double);
    procedure CreateValidationSet;
@@ -91,6 +92,7 @@ type
    procedure SetProperties(const Props : TCascadeBoostProps);
 
    constructor Create;
+   destructor Destroy; override;
  end;
 
 implementation
@@ -169,6 +171,10 @@ begin
      fProps.featureIncrease := 25;
      fProps.validationPerc := 0.2;
 
+     fRndEng := TRandomGenerator.Create;
+     fRndEng.RandMethod := raMersenneTwister;
+     fRndEng.Init(0);
+
      inherited Create;
 end;
 
@@ -184,7 +190,8 @@ begin
 
      validationCnt := Max(1, Round(fProps.validationPerc*DataSet.Count) div 2);
 
-     fValidationSet := TCustomLearnerExampleList(DataSet.ClassType).Create(DataSet.OwnsObjects);
+     fValidationSet := TCustomLearnerExampleList(DataSet.ClassType).Create;
+     fValidationSet.OwnsObjects := DataSet.OwnsObjects;
 
      numExmpl := 0;
      lastClassVal := -1000000;
@@ -202,7 +209,7 @@ begin
      while fValidationSet.Count < validationCnt do
      begin
           repeat
-                counter := random(numExmpl);
+                counter := fRndEng.RandInt(numExmpl);
           until clIdx[counter] <> -1;
 
           obj := DataSet[counter];
@@ -237,7 +244,7 @@ begin
      while fValidationSet.Count < validationCnt do
      begin
           repeat
-                counter := random(numExmpl);
+                counter := fRndEng.RandInt(numExmpl);
           until clIdx[counter] <> -1;
 
           obj := DataSet[counter];
@@ -346,6 +353,13 @@ end;
 procedure TCascadeBoostLearner.SetProperties(const Props: TCascadeBoostProps);
 begin
      fProps := Props;
+end;
+
+destructor TCascadeBoostLearner.Destroy;
+begin
+     fRndEng.Free;
+
+     inherited;
 end;
 
 { TCascadeBoostClassifier }

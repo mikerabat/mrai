@@ -20,7 +20,7 @@ unit BaseIncrementalLearner;
 
 interface
 
-uses SysUtils, Classes, BaseClassifier, Types;
+uses SysUtils, Classes, BaseClassifier, Types, RandomEng;
 
 type
   TLoadExampleEvent = procedure(Sender : TObject; Example : TCustomLearnerExample; const weight : double = -1) of object;
@@ -40,6 +40,7 @@ type
     fOnLoadInitComplete: TLoadInitCompleteEvent;
     fLoadStrategy: TIncrementalLearnStrategy;
     fOnLoadClass: TLoadClassExamplesEvent;
+    fRndEng : TRandomGenerator;
 
     property InitPercentage : double read FInitPercentage;
     property LoadStrategy : TIncrementalLearnStrategy read fLoadStrategy;
@@ -239,6 +240,10 @@ constructor TCustomIncrementalLearnerExampleList.Create(
 begin
      fInitPercentage := Max(0, Min(1, aInitPercentage));
      fLoadStrategy := aStrategy;
+
+     fRndEng := TRandomGenerator.Create;
+     fRndEng.RandMethod := raMersenneTwister;
+     fRndEng.Init(0);
 
      inherited Create;
 end;
