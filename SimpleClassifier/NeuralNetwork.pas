@@ -3,7 +3,7 @@
 // #### offered under the licence agreement described on
 // #### http://www.mrsoft.org/
 // ####
-// #### Copyright:(c) 2014, Michael R. . All rights reserved.
+// #### Copyright:(c) 2016, Michael R. . All rights reserved.
 // ####
 // #### Unless required by applicable law or agreed to in writing, software
 // #### distributed under the License is distributed on an "AS IS" BASIS,
@@ -222,10 +222,9 @@ end;
 function TNeuron.Derrive(const outputVal: double): double;
 begin
      case fNeuralType of
-       //ntPerceptron: raise Exception.Create('No derivation for perceptron');
-       ntLinear: Result := 1;
+       ntLinear: Result := fBeta;
        ntExpSigmoid: Result := fBeta*(outputVal*(1 - outputVal));
-       ntTanSigmoid: Result := fBeta*(1 - sqr(tanh(outputVal)));
+       ntTanSigmoid: Result := fBeta*(1 - sqr(outputVal));
      else
          Result := 0;
      end;
