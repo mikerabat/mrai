@@ -385,7 +385,7 @@ begin
           fClassifier.Free;
           FreeAndNil(fClMapBmp);
 
-          props.learnAlgorithm := nnBackprop;
+          props.learnAlgorithm := nnBackpropMomentum;
           props.outputLayer := ntLinear;
 
           SetLength(props.layers, 2);
@@ -394,11 +394,14 @@ begin
           props.layers[1].NumNeurons := 5;
           props.layers[1].NeuronType := ntExpSigmoid;
           props.eta := 0.001;
+          props.validationDataSetSize := 0.2;
+          props.alpha := 0.8;
+          props.cf := 0;
 
           props.numMinDeltaErr := 10;
           props.stopOnMinDeltaErr := 1e-4;
           props.maxNumIter := 4000;
-          props.minNumIter := 200;
+          props.minNumIter := 400;
 
           learner := TNeuralNetLearner.Create;
           try

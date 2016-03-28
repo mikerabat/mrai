@@ -34,14 +34,18 @@ type
 type
   TNeuron = class(TBaseMathPersistence)
   private
-    fThresh : double;
     fBeta : double;
     fNeuralType : TNeuronType;
     fWeights : TDoubleDynArray;
-  public
-    function Feed(const Input : TDoubleDynArray) : double;
+
+    // additional data only used in the learning step:
+    fDeltaWM1 : TDoubleDynArray; // wheights update in the learning step before
+
+    // helper functions for learning
     function Derrive(const outputVal : double) : double;
     procedure RandomInit(const RangeMin : double = -1; const RangeMax : double = 1);
+  public
+    function Feed(const Input : TDoubleDynArray) : double;
 
     procedure DefineProps; override;
 
@@ -104,16 +108,19 @@ type
 
 
 type
-  TNeuralNetLearnAlg = (nnBackprop);
+  TNeuralNetLearnAlg = (nnBackprop, nnBackpropMomentum);
   TNeuralNetProps = record
     learnAlgorithm : TNeuralNetLearnAlg;
     layers : TNeuralLayerRecArr; // without the output layer!
-    //InputMinMax : Array[0..1] of double; // maximum input values for all input neurons (perhaps do that for each neuron?)
     outputLayer : TNeuronType;   // output neuron type. (number of output neurons is the number of classes
     eta : double;                // learning rate
+    alpha : double;              // used in the momentum algorithm as multiplier of the second term learning rate
+    cf : double;                 // flat spot elimination constant (used in momentum backprop)
     maxNumIter : integer;        // maximum number of batch iterations
     minNumIter : integer;        // minimum number of batch iterations (despite the error change)
     stopOnMinDeltaErr : double;  // when training error change is lower than this delta then stop training
+    validationDataSetSize : double; // percentage (0-1) to be used as validation data set. if set to 0 the training
+                                    // set is used for validation.
     numMinDeltaErr : integer;    // number of batch iterations that needs to be lower than stopOnMinDeltaErr
   end;
 
@@ -153,6 +160,8 @@ type
 
     function DataSetMinMax : TNeuralMinMax;
     procedure UpdateWeights(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
+    procedure UpdateWeightsByLearnRate(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
+    procedure UpdateWeightsMomentum(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
     procedure BackProp(net : TFeedForwardNeuralNet; randSet: TCustomLearnerExampleList);
   protected
     function DoUnweightedLearn : TCustomClassifier; override;
@@ -191,24 +200,23 @@ begin
      fNeuralType := nnType;
 
      fBeta := 1;
-     fThresh := 0;
-     SetLength(fWeights, NumInputs);
+     SetLength(fWeights, NumInputs + 1);
 end;
 
 function TNeuron.Feed(const Input : TDoubleDynArray): double;
 var i : integer;
 begin
-     assert(Length(input) = length(fWeights), 'Error input does not match learned weights');
+     assert(Length(input) + 1 = length(fWeights), 'Error input does not match learned weights');
 
-     Result := 0;
+     Result := fWeights[0];
      for i := 0 to Length(Input) - 1 do
-         Result := Result + Input[i]*fWeights[i];
+         Result := Result + Input[i]*fWeights[i + 1];
 
      case fNeuralType of
        //ntPerceptron: Result := ifthen(Result < fThresh, 0, 1);
-       ntLinear: Result := Result - fThresh;
-       ntExpSigmoid: Result := 1/(1 + exp(-fBeta*(Result - fThresh)));
-       ntTanSigmoid: Result := tanh(fBeta*(Result - fThresh));
+       ntLinear: Result := Result;
+       ntExpSigmoid: Result := 1/(1 + exp(-fBeta*(Result)));
+       ntTanSigmoid: Result := tanh(fBeta*(Result));
      end;
 end;
 
@@ -216,7 +224,7 @@ procedure TNeuron.RandomInit(const RangeMin : double = -1; const RangeMax: doubl
 var i : Integer;
 begin
      for i := 0 to Length(fWeights) - 1 do
-         fWeights[i] := Random*(rangeMax - rangeMin) + RangeMin;   
+         fWeights[i] := Random*(rangeMax - rangeMin) + RangeMin;
 end;
 
 function TNeuron.Derrive(const outputVal: double): double;
@@ -234,7 +242,6 @@ procedure TNeuron.DefineProps;
 begin
      inherited;
 
-     AddDoubleProperty(cNeuronThresh, fThresh);
      AddDoubleProperty(cNeuronBeta, fBeta);
      AddIntProperty(cNeuronType, Integer(fNeuralType));
      AddDoubleArr(cNeuronWeights, fWeights);
@@ -251,10 +258,7 @@ end;
 
 procedure TNeuron.OnLoadDoubleProperty(const Name: String; const Value: double);
 begin
-     if SameText(Name, cNeuronThresh)
-     then
-         fThresh := Value
-     else if SameText(Name, cNeuronBeta)
+     if SameText(Name, cNeuronBeta)
      then
          fBeta := Value
      else
@@ -372,7 +376,7 @@ var counter : integer;
 begin
      for counter := 0 to Length(layer.fNeurons) - 1 do
      begin
-          layer.fNeurons[counter].fThresh := aThresh;
+          layer.fNeurons[counter].fWeights[0]:= -aThresh;
           layer.fNeurons[counter].fBeta := aBeta;
      end;
 end;
@@ -524,6 +528,9 @@ begin
           SetLength(fdeltaI, fMaxNumNeurons);
      end;
 
+     if fProps.learnAlgorithm <> nnBackpropMomentum then
+        fProps.cf := 0;
+
      lastClass := MaxInt;
 
      // ###############################################
@@ -559,8 +566,9 @@ begin
           for neuronCnt := 0 to Length(fok[length(fok) - 1]) - 1 do
           begin
                fdeltak[neuronCnt] := (foutputExpAct[neuronCnt] - fok[Length(fok) - 1][neuronCnt])*
-                                     net.fLayer[Length(net.fLayer) - 1].fNeurons[neuronCnt].Derrive(fok[Length(fok) - 1][neuronCnt]);
-
+                                     (fProps.cf +
+                                      net.fLayer[Length(net.fLayer) - 1].fNeurons[neuronCnt].Derrive(fok[Length(fok) - 1][neuronCnt])
+                                     );
                // update weights of the final neuron
                UpdateWeights(fdeltaK[neuronCnt], fok[Length(fok) - 2], net.fLayer[Length(net.fLayer) - 1].fNeurons[neuronCnt]);
           end;
@@ -582,7 +590,8 @@ begin
                     for counter := 0 to Length(net.fLayer[layerCnt + 1].fNeurons) - 1 do
                         fdeltaK[neuronCnt] := fdeltaK[neuronCnt] +
                                               fdeltaI[counter]*
-                                              net.fLayer[layerCnt + 1].fNeurons[counter].fWeights[neuronCnt];
+                                              (fProps.cf +
+                                               net.fLayer[layerCnt + 1].fNeurons[counter].fWeights[neuronCnt]);
                     fdeltaK[neuronCnt] := fdeltaK[neuronCnt]*net.fLayer[layerCnt].fNeurons[neuronCnt].Derrive(fOk[layerCnt + 1][neuronCnt]);
 
                     // update weights of the current neuron
@@ -602,6 +611,7 @@ var net : TFeedForwardNeuralNet;
     errCnt : integer;
     inputMinMax : TNeuralMinMax;
     randSet : TCustomLearnerExampleList;
+    validationSet : TCustomLearnerExampleList;
 begin
      fclassLabels := Classes;
      fnumCl := Length(fclassLabels);
@@ -630,6 +640,10 @@ begin
      // #### create classifier
      Result := TNeuralNet.Create(net, Classes);
 
+     // ###########################################
+     // #### create Traingin sets
+     Dataset.CreateTrainAndValidationSet(Round(100*fProps.validationDataSetSize), randSet, validationSet);
+
      // #########################################################
      // ##### batch error evaluation
      for learnCnt := 0 to fProps.maxNumIter - 1 do
@@ -637,23 +651,19 @@ begin
 
           // ##########################################################
           // #### One batch learn iteration (randomized data set)
-          randSet := DataSet.CreateRandomDataSet(100);
-          try
-             Backprop(net, randSet);
-          finally
-                 randSet.Free;
-          end;
+          randSet.Shuffle;
+          Backprop(net, randSet);
 
 
           // ##################################################
           // #### test learning error
           curErr := 0;
-          for errCnt := 0 to DataSet.Count - 1 do
+          for errCnt := 0 to validationSet.Count - 1 do
           begin
-               if Result.Classify(DataSet.Example[errCnt]) <> DataSet.Example[errCnt].ClassVal then
+               if Result.Classify(validationSet.Example[errCnt]) <> validationSet.Example[errCnt].ClassVal then
                   curErr := curErr + 1;
           end;
-          curErr := curErr/DataSet.Count;
+          curErr := curErr/validationSet.Count;
 
           if (learnCnt >= fProps.minNumIter) and (lastErr - curErr < fProps.stopOnMinDeltaErr) then
           begin
@@ -668,15 +678,18 @@ begin
                numSmallErrChange := 0;
           end;
      end;
+
+     randSet.Free;
+     validationSet.Free;
 end;
 
 procedure TNeuralNetLearner.UpdateWeights(deltaK: double;
   outputs: TDoubleDynArray; neuron: TNeuron);
-var counter : integer;
 begin
-     // very simple update rule (simple gradient decent with learning factor eta)
-     for counter := 0 to Length(neuron.fWeights) - 1 do
-         neuron.fWeights[counter] := neuron.fWeights[counter] + fProps.eta*deltaK*outputs[counter];
+     case fProps.learnAlgorithm of
+       nnBackprop: UpdateWeightsByLearnRate(deltaK, outputs, neuron);
+       nnBackpropMomentum: UpdateWeightsMomentum(deltaK, outputs, neuron);
+     end;
 end;
 
 procedure TNeuralNetLearner.SetProps(const Props: TNeuralNetProps);
@@ -706,6 +719,37 @@ class function TNeuralNetLearner.CanLearnClassifier(
 begin
      Result := Classifier = TNeuralNet;
 end;
+
+procedure TNeuralNetLearner.UpdateWeightsByLearnRate(deltaK: double;
+  outputs: TDoubleDynArray; neuron: TNeuron);
+var counter : integer;
+begin
+     // very simple update rule (simple gradient decent with learning factor eta)
+     neuron.fWeights[0] := neuron.fWeights[0] + fProps.eta*deltaK*1;
+     for counter := 1 to Length(neuron.fWeights) - 1 do
+         neuron.fWeights[counter] := neuron.fWeights[counter] + fProps.eta*deltaK*outputs[counter - 1];
+end;
+
+
+procedure TNeuralNetLearner.UpdateWeightsMomentum(deltaK: double;
+  outputs: TDoubleDynArray; neuron: TNeuron);
+var counter : integer;
+    weightUpdate : TDoubleDynArray;
+begin
+     SetLength(weightUpdate, Length(neuron.fWeights));
+     if neuron.fDeltaWM1 = nil then
+        neuron.fDeltaWM1 := weightUpdate;
+
+     // momentum: take the previous weight update into account
+     weightUpdate[0] := fProps.eta*deltaK*1 + fProps.alpha*neuron.fDeltaWM1[0];
+     for counter := 1 to Length(neuron.fWeights) - 1 do
+         weightUpdate[counter] := fProps.eta*deltaK*outputs[counter - 1] + fProps.alpha*neuron.fDeltaWM1[counter];
+
+     for counter := 0 to Length(neuron.fWeights) - 1 do
+         neuron.fWeights[counter] := neuron.fWeights[counter] + weightUpdate[counter];
+     neuron.fDeltaWM1 := weightUpdate;
+end;
+
 
 { TNeuralNet }
 

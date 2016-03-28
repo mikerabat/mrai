@@ -91,9 +91,12 @@ type
     function GetExample(index : integer) : TCustomLearnerExample; virtual;
     procedure SetExample(index : integer; Value : TCustomLearnerExample);
   public
+    procedure CreateTrainAndValidationSet(validationDataSetPerc : integer; out trainSet, validationSet : TCustomLearnerExampleList);
     function CreateBalancedDataSet : TCustomLearnerExampleList;
     function CreateRandomDataSet(Percentage : integer) : TCustomLearnerExampleList;
     function CreateRandomizedBalancedDataSet(Percentage : integer) : TCustomLearnerExampleList;
+
+    procedure Shuffle;  // randomizes all the examples
 
     property Example[index : integer] : TCustomLearnerExample read GetExample write SetExample; default;
     procedure Add(Exmpl : TCustomLearnerExample);
@@ -473,6 +476,50 @@ begin
      fRandom.Free;
 
      inherited;
+end;
+
+procedure TCustomLearnerExampleList.CreateTrainAndValidationSet(
+  validationDataSetPerc : integer; out trainSet,
+  validationSet: TCustomLearnerExampleList);
+var counter : integer;
+    numValidationElem : integer;
+begin
+     assert((validationDataSetPerc <= 100) and (validationDataSetPerc >= 0), 'Percentage needs to be between 0 and 100');
+     trainSet := CreateRandomDataSet(100);
+
+     validationSet := self.ClassType.Create as TCustomLearnerExampleList;
+
+     // special case: 0 or 100 - just clone the train set: validation set == trainSet
+     if (validationDataSetPerc = 0) or (validationDataSetPerc = 100) then
+     begin
+          validationSet.Capacity := trainSet.Count;
+          for counter := 0 to trainset.Count - 1 do
+              validationSet.Add(trainset[counter]);
+     end
+     else
+     begin
+          numValidationElem := Max(1, Floor(validationDataSetPerc/100*trainSet.Count));
+          for counter := 0 to numValidationElem - 1 do
+          begin
+               validationSet.Add(trainSet[trainSet.Count - 1 - counter]);
+               trainSet[trainSet.Count - 1 - counter] := nil;
+          end;
+          // delete last elements
+          trainSet.Pack;
+     end;
+end;
+
+procedure TCustomLearnerExampleList.Shuffle;
+var i : integer;
+    index : integer;
+begin
+     // Fisher yates shuffle:
+     for i := Count - 1 downto 1 do
+     begin
+          index := Rand.RandInt(i + 1);
+
+          Exchange(i, index);
+     end;
 end;
 
 { TCustomWeightedLearner }
