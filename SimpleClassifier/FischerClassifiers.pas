@@ -47,6 +47,7 @@ type
     function OnLoadObject(const Name : String; Obj : TBaseMathPersistence) : boolean; overload; override;
     procedure OnLoadIntArr(const Name : String; const Value : TIntegerDynArray); override;
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
   public
     property OnReconstructFace : TOnReconstructExample read fOnReconstruct write fOnReconstruct;
     function BackProjectedCenters : TDoubleMatrixDynArr; virtual;
@@ -108,6 +109,7 @@ type
 
     function OnLoadObject(const Name : String; Obj : TBaseMathPersistence) : boolean; overload; override;
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
 
     constructor Create(PCA : TFastRobustPCA; V : TDoubleMatrix; const classCenters : TDoubleMatrixDynArr; const classLabels : TIntegerDynArray);
     destructor Destroy; override;
@@ -178,6 +180,19 @@ begin
 
      if Length(fClassLabels) > 0 then
         AddIntArr('FisherLabels', fClassLabels);
+end;
+
+function TFischerLDAClassifier.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, 'FisherU') = 0) or (CompareText(Name, 'FisherMean') = 0) or
+        (CompareText(Name, 'FisherV') = 0) or (CompareText(Name, cLDAClassCenters) = 0)
+     then
+         Result := ptObject
+     else if CompareText(Name, 'FisherLabels') = 0
+     then
+         Result := ptInteger
+     else
+         Result := inherited PropTypeOfName(Name);
 end;
 
 destructor TFischerLDAClassifier.Destroy;
@@ -822,6 +837,16 @@ begin
      inherited;
 
      AddObject(cLDARobustPCA, fPCA);
+end;
+
+function TFischerRobustExLDAClassifier.PropTypeOfName(
+  const Name: string): TPropType;
+begin
+     if CompareText(Name, cLDARobustPCA) = 0
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
 end;
 
 destructor TFischerRobustExLDAClassifier.Destroy;

@@ -68,6 +68,7 @@ type
     // #### abstract functions -> loading of data + classification
     function Classify(Example : TCustomExample; var confidence : double) : integer; override;
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
 
     constructor Create;
     destructor Destroy; override;
@@ -170,6 +171,21 @@ begin
      if Length(fClassIdx) > 0 then
         AddIntArr(cLDAExmpl, fClassIdx);
 end;
+
+function TIncrementalFischerLDAClassifier.PropTypeOfName(
+  const Name: string): TPropType;
+begin
+     if (CompareText(Name, cPCA) = 0) or (CompareText(Name, cLDAMatrix) = 0) or
+        (CompareText(Name, cLDAClassCenters) = 0)
+     then
+         Result := ptObject
+     else if (CompareText(Name, cClassLabels) = 0) or (CompareText(Name, cLDAExmplIdx) = 0)
+     then
+         Result := ptInteger
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 procedure TIncrementalFischerLDAClassifier.AddClassIDx(alabel: integer);
 begin

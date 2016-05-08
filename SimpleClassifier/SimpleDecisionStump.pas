@@ -21,7 +21,7 @@ unit SimpleDecisionStump;
 
 interface
 
-uses SysUtils, Classes, Types, BaseClassifier;
+uses SysUtils, Classes, Types, BaseClassifier, BaseMathPersistence;
 
 // ####################################################
 // #### simple decision stump classifier.
@@ -50,6 +50,8 @@ type
     procedure OnLoadIntProperty(const Name : String; Value : integer); override;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
     constructor Create(Dim : integer; Thresh : double; c1, c2 : integer; const confMult, confBias : double);
   end;
 
@@ -78,7 +80,7 @@ type
 
 implementation
 
-uses Math, Windows, SyncObjs, BaseMathPersistence, MatrixConst;
+uses Math, Windows, SyncObjs, MatrixConst;
 
 const cDimensionProp = 'dimension';
       cThresholdProp = 'threshold';
@@ -584,6 +586,21 @@ begin
      AddDoubleProperty(cConfProp, fConfMult);
      AddDoubleProperty(cConfBiasProp, fConfBias);
 end;
+
+function TDecisionStump.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, cDimensionProp) = 0) or (CompareText(Name, cClass1Prop) = 0) or
+        (CompareText(Name, cClass2Prop) = 0)
+     then
+         Result := ptInteger
+     else if (CompareText(Name, cThresholdProp) = 0) or (CompareText(Name, cConfProp) = 0) or
+             (CompareText(Name, cConfBiasProp) = 0)
+     then
+         Result := ptDouble
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 procedure TDecisionStump.OnLoadDoubleProperty(const Name: String;
   const Value: double);

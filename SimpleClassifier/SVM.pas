@@ -75,6 +75,8 @@ type
     procedure OnLoadDoubleProperty(const Name : String; const Value : double); override;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
     constructor Create(const props : TSVMProps; w, sv, bias : IMatrix; c1, c2 : integer; scaleMean, scaleFact : IMatrix);
   end;
 
@@ -690,7 +692,7 @@ begin
         AddObject('SVMScaleMean', fScaleMean.GetObjRef);
      if Assigned(fScaleFact) then
         AddObject('SVMScaleFact', fScaleFact.GetObjRef);
-     
+
      AddIntProperty('SVMLearnMethod', Integer(fProps.learnMethod));
      AddIntProperty('SVMKernelType', Integer(fProps.kernelType));
 
@@ -703,6 +705,26 @@ begin
                          AddDoubleProperty('SVMSigmoidScale', fProps.scale);
                     end;
      end;
+end;
+
+function TSVMClassifier.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, 'SVMW') = 0) or (CompareText(Name, 'SVMSV') = 0) or
+        (CompareText(Name, 'SVMBIAS') = 0) or (CompareText(Name, 'SVMScaleMean') = 0) or
+        (CompareText(Name, 'SVMScaleFact') = 0)
+     then
+         Result := ptObject
+     else if (CompareText(Name, 'SVMClass1') = 0) or (CompareText(Name, 'SVMClass2') = 0) or
+             (CompareText(Name, 'SVMAutoScale') = 0) or (CompareText(Name, 'SVMLearnMethod') = 0) or
+             (CompareText(Name, 'SVMKernelType') = 0) or (CompareText(Name, 'SVMPolyOrder') = 0)
+     then
+         Result := ptInteger
+     else if (CompareText(Name, 'SVMSlack') = 0) or (CompareText(Name, 'SVMGaussSigma') = 0) or
+             (CompareText(Name, 'SVMSigmoidOffset') = 0) or (CompareText(Name, 'SVMSigmoidScale') = 0)
+     then
+         Result := ptDouble
+     else
+         Result := inherited PropTypeOfName(Name);
 end;
 
 procedure TSVMClassifier.OnLoadDoubleProperty(const Name: String;

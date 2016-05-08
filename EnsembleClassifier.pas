@@ -47,6 +47,8 @@ type
     
     // reader writer routines
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
     function OnLoadObject(Obj : TBaseMathPersistence) : boolean; override;
     procedure OnLoadBeginList(const Name : String; count : integer); override;
     procedure OnLoadEndList; override;
@@ -80,14 +82,25 @@ begin
      EndList;
 end;
 
+function TEnsembelClassifier.PropTypeOfName(const Name: string): TPropType;
+begin
+     if CompareText(Name, cEnsembleListBeginProp) = 0
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
+
+end;
+
+
 destructor TEnsembelClassifier.Destroy;
 begin
      if fOwnsSet then
         FreeAndNil(fClassifiers);
-        
+
      inherited;
 end;
- 
+
 procedure TEnsembelClassifier.OnLoadBeginList(const Name: String;
   count: integer);
 begin

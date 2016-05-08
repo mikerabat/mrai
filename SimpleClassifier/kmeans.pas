@@ -48,6 +48,8 @@ type
     function ClassifyWithMtx(mtx : TDoubleMatrix; var confidence : double) : integer;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
   public
     property Centers : IMatrix read fCenters;
     function Classify(Example : TCustomExample; var confidence : double) : integer; override;
@@ -158,6 +160,18 @@ begin
 
      AddIntArr(cClassLabels, fClassVals);
      AddObject(cCenter, fCenters.GetObjRef);
+end;
+
+function TKMeans.PropTypeOfName(const Name: string): TPropType;
+begin
+     if CompareText(Name, cClassLabels) = 0
+     then
+         Result := ptInteger
+     else if CompareText(Name, cCenter) = 0
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
 end;
 
 procedure TKMeans.OnLoadIntArr(const Name: String;

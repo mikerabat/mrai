@@ -20,7 +20,7 @@ unit NaiveBayes;
 
 interface
 
-uses SysUtils, Classes, Types, BaseClassifier;
+uses SysUtils, Classes, Types, BaseClassifier, BaseMathPersistence;
 
 type
   TNaiveBayesProps = record
@@ -56,6 +56,8 @@ type
     procedure OnLoadEndList; override;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
     constructor Create(const props : TNaiveBayesProps; const distr : TDoubleDynArrayArr; const clVals : TIntegerDynArray);
   end;
 
@@ -80,7 +82,7 @@ type
 
 implementation
 
-uses Math, BaseMathPersistence;
+uses Math;
 
 // ################################################
 // ##### persistence
@@ -88,7 +90,6 @@ uses Math, BaseMathPersistence;
 
 const cClassLabels = 'labels';
       cDistrList = 'distrList';
-      cDistribution = 'distr';
       cNumBins = 'numbins';
       cHistoMin = 'histmin';
       cHistoMax = 'histmax';
@@ -265,9 +266,23 @@ begin
 
      BeginList(cDistrList, Length(fDistr));
      for counter := 0 to Length(fDistr) - 1 do
-         AddDoubleArr(cDistribution, fDistr[counter]);
+         AddListDoubleArr(fDistr[counter]);
      EndList;
 end;
+
+function TNaiveBayes.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, cClassLabels) = 0) or (CompareText(Name, cNumBins) = 0)
+     then
+         Result := ptInteger
+     else if (CompareText(Name, cHistoMin) = 0) or (CompareText(Name, cHistoMax) = 0) or
+             (CompareText(Name, cDistrList) = 0)
+     then
+         Result := ptDouble
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 procedure TNaiveBayes.OnLoadBeginList(const Name: String; count: integer);
 begin

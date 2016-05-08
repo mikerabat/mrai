@@ -33,6 +33,8 @@ type
     procedure SetAddObj(obj : TBaseMathPersistence);
   public
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
     procedure OnLoadBinaryProperty(const Name : String; const Value; size : integer); override;
     procedure OnLoadDoubleProperty(const Name : string; const Value : double); override;
     function OnLoadObject(const Name : String; Obj : TBaseMathPersistence) : boolean; override;
@@ -225,6 +227,23 @@ begin
      inherited;
 end;
 
+function TCustomBoostingClassifier.PropTypeOfName(
+  const Name: string): TPropType;
+begin
+     if CompareText(Name, cBoostWeightsProp) = 0
+     then
+         Result := ptBinary
+     else if CompareText(Name, cBoostOffset) = 0
+     then
+         Result := ptDouble
+     else if CompareText(Name, cBoostAddObj) = 0
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
+
 destructor TCustomBoostingClassifier.Destroy;
 begin
      fAddObj.Free;
@@ -237,7 +256,7 @@ procedure TCustomBoostingClassifier.OnLoadBinaryProperty(const Name: String;
 begin
      if CompareText(cBoostWeightsProp, Name) = 0 then
      begin
-          assert(size mod sizeof(double) = 0, 'Error sisze differs from double');
+          assert(size mod sizeof(double) = 0, 'Error size differs from double double array');
           SetLength(fWeights, size div sizeof(double));
           Move(Value, fWeights[0], size);
      end

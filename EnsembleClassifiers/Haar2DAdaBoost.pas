@@ -45,6 +45,7 @@ type
     procedure OnLoadIntProperty(const Name : String; Value : integer); override;
     class function ClassIdentifier : String; override;
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
     procedure FinishReading; override;
   public
     property RefFeatureList : THaar2DRefFeatureList read fRefFeatureList;
@@ -200,6 +201,19 @@ begin
      AddIntProperty(cHaar2DPropNumColPlane, fNumColorPlanes);
      AddIntProperty(cHaar2DPropFeatureType, Integer(fFeatureType));
 end;
+
+function THaar2DProps.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, cHaar2DPropWinWidth) = 0) or
+        (CompareText(Name, cHaar2DPropWinHeight) = 0) or
+        (CompareText(Name, cHaar2DPropNumColPlane) = 0) or
+        (CompareText(Name, cHaar2DPropFeatureType) = 0)
+     then
+         Result := ptInteger
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 destructor THaar2DProps.Destroy;
 begin

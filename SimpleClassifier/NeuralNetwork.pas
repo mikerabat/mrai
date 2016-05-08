@@ -48,6 +48,7 @@ type
     function Feed(const Input : TDoubleDynArray) : double;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
 
     procedure OnLoadDoubleProperty(const Name : String; const Value : double); override;
     procedure OnLoadIntProperty(const Name : String; Value : integer); override;
@@ -68,6 +69,7 @@ type
     function Feed(const Input : TDoubleDynArray) : TDoubleDynArray;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
     procedure OnLoadBeginList(const Name : String; count : integer); override;
     function OnLoadObject(Obj : TBaseMathPersistence) : boolean; override;
     procedure OnLoadEndList; override;
@@ -97,6 +99,8 @@ type
     function Feed(const Input : TDoubleDynArray) : TDoubleDynArray;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
     procedure OnLoadBeginList(const Name : String; count : integer); override;
     function OnLoadObject(Obj : TBaseMathPersistence) : boolean; override;
     procedure OnLoadEndList; override;
@@ -138,6 +142,7 @@ type
     procedure OnLoadIntArr(const Name : String; const Value : TIntegerDynArray); override;
 
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
 
     constructor Create(aNet : TFeedForwardNeuralNet; aClassList : TIntegerDynArray);
     destructor Destroy; override;
@@ -247,6 +252,18 @@ begin
      AddDoubleArr(cNeuronWeights, fWeights);
 end;
 
+function TNeuron.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, cNeuronBeta) = 0) or (CompareText(Name, cNeuronWeights) = 0)
+     then
+         Result := ptDouble
+     else if CompareText(Name, cNeuronType) = 0
+     then
+         Result := ptInteger
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 procedure TNeuron.OnLoadIntProperty(const Name: String; Value: integer);
 begin
      if SameText(Name, cNeuronType)
@@ -321,6 +338,18 @@ begin
      for counter := 0 to Length(fNeurons) - 1 do
          AddObject(fNeurons[counter]);
      EndList;
+end;
+
+function TNeuralLayer.PropTypeOfName(const Name: string): TPropType;
+begin
+     if CompareText(Name, cNeuronType) = 0
+     then
+         Result := ptInteger
+     else if CompareText(Name, cNeuronList) = 0
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
 end;
 
 procedure TNeuralLayer.OnLoadIntProperty(const Name: String; Value: integer);
@@ -454,6 +483,19 @@ begin
      AddBinaryProperty(cInputMinMax, fInputMinMax, sizeof(fInputMinMax));
      AddBinaryProperty(cOutputMinMax, fOutputMinMax, sizeof(fOutputMinMax));
 end;
+
+function TFeedForwardNeuralNet.PropTypeOfName(const Name: string): TPropType;
+begin
+     if CompareText(Name, cNetLayers) = 0
+     then
+         Result := ptObject
+     else if (CompareText(Name, cInputMinMax) = 0) or (CompareText(Name, cOutputMinMax) = 0)
+     then
+         Result := ptBinary
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 procedure TFeedForwardNeuralNet.OnLoadBinaryProperty(const Name: String;
   const Value; size: integer);
@@ -824,6 +866,19 @@ begin
      AddIntArr(cClassLabels, fClasses);
      AddObject(cNeuralNet, fNet);
 end;
+
+function TNeuralNet.PropTypeOfName(const Name: string): TPropType;
+begin
+     if CompareText(Name, cClassLabels) = 0
+     then
+         Result := ptInteger
+     else if CompareText(Name, cNeuralNet) = 0
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 initialization
   RegisterMathIO(TNeuralNet);

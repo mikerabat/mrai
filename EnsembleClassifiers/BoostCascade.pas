@@ -36,6 +36,7 @@ type
   protected
     class function ClassIdentifier : String; override;
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
 
     procedure OnLoadIntProperty(const Name : String; Value : integer); override;
     procedure OnLoadBeginList(const Name : String; count : integer); override;
@@ -409,6 +410,19 @@ begin
          AddObject(fCascade[i]);
      EndList;
 end;
+
+function TCascadeBoostClassifier.PropTypeOfName(const Name: string): TPropType;
+begin
+     if CompareText(Name, cBoostCascadeRefClassVal) = 0
+     then
+         Result := ptInteger
+     else if CompareText(Name, cBoostCascadeCascade) = 0
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 destructor TCascadeBoostClassifier.Destroy;
 var i : integer;

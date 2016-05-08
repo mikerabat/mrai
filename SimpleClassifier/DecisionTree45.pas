@@ -21,7 +21,7 @@ unit DecisionTree45;
 
 interface
 
-uses SysUtils, Classes, BaseClassifier, TreeStructs, Types;
+uses SysUtils, Classes, BaseClassifier, TreeStructs, Types, BaseMathPersistence;
 
 type
   T45TreeLearnType = (ltFull, ltMaxDepth, ltPrune);
@@ -66,6 +66,7 @@ type
 
     procedure OnLoadBinaryProperty(const Name : String; const Value; size : integer); override;
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
 
     constructor Create(Tree : TCustomTreeItem);
     destructor Destroy; override;
@@ -94,7 +95,7 @@ type
 
 implementation
 
-uses Math, MathUtilFunc, BaseMathPersistence;
+uses Math, MathUtilFunc;
 
 const eps = 1e-6;
       c45ClassesProps = 'classes';
@@ -719,6 +720,17 @@ begin
           end;
      end;
 end;
+
+function TC45Classifier.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, c45ClassesProps) = 0) or
+        (CompareText(Name, c45TreeProps) = 0)
+     then
+         Result := ptBinary
+     else
+         Result := inherited PropTypeOfName(Name);
+end;
+
 
 destructor TC45Classifier.Destroy;
 begin

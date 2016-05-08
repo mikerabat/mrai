@@ -120,7 +120,7 @@ uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
      IncrementalFischerLDA, FischerIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
      BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF, 
-     kmeans, NeuralNetwork;
+     kmeans, NeuralNetwork, JSONReaderWriter;
 
 {$R *.dfm}
 
@@ -230,7 +230,8 @@ begin
      if chkSaveClassifier.Checked then
      begin
           if sdSaveAdaBoost.Execute(Handle) then
-             haar2DClassifier.SaveToFile(sdSaveAdaBoost.FileName, TBinaryReaderWriter);
+             //haar2DClassifier.SaveToFile(sdSaveAdaBoost.FileName, TBinaryReaderWriter);
+             haar2DClassifier.SaveToFile(sdSaveAdaBoost.FileName, TJsonReaderWriter);
      end;
 
      try

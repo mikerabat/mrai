@@ -74,19 +74,21 @@ type
     procedure OnLoadIntArr(const Name : String; const Value : TIntegerDynArray); override;
     procedure OnLoadBeginList(const Name : String; count : integer); override;
     procedure OnLoadEndList; override;
-    
+
     procedure DefineProps; override;
+    function PropTypeOfName(const Name : string) : TPropType; override;
+
   public
     property Centers : TDoubleMatrix read fCenters;
-  
+
     function Classify(Example : TCustomExample; var confidence : double) : integer; overload; override;
 
     constructor Create(const props : TRBFProperties; W : TDoubleMatrixDynArr; Centers : TDoubleMatrix; const clVals : TIntegerDynArray; augmentBase : boolean);
     destructor Destroy; override;
   end;
-  
+
   ERBFLearnError = class(Exception);
-  
+
   TRadialBasisLearner = class(TCustomWeightedLearner)
   private
     fProps : TRBFProperties;
@@ -94,7 +96,7 @@ type
     fclIdx : TIntIntArray;
     fclassVals : TIntegerDynArray;
 
-    fCenters : TDoubleMatrix;   
+    fCenters : TDoubleMatrix;
     fW : TDoubleMatrixDynArr;
     fCenterClassVals : TIntegerDynArray;
 
@@ -403,6 +405,23 @@ begin
      for counter := 0 to Length(fW) - 1 do
          AddObject(fW[counter]);
      EndList;
+end;
+
+function TRBFClassifier.PropTypeOfName(const Name: string): TPropType;
+begin
+     if (CompareText(Name, cClassLabels) = 0) or (CompareText(Name, cKernel) = 0) or
+        (CompareText(Name, cAugmentBase) = 0)
+     then
+         Result := ptInteger
+     else if (CompareText(Name, cSigma) = 0) or (CompareText(Name, cEpsilon) = 0)
+     then
+         Result := ptDouble
+     else if (CompareText(Name, cCenter) = 0) or (CompareText(Name, cWeights) = 0)
+     then
+         Result := ptObject
+     else
+         Result := inherited PropTypeOfName(Name);
+
 end;
 
 
