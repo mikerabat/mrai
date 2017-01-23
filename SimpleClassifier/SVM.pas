@@ -118,7 +118,14 @@ uses BaseMatrixExamples, MatrixConst, MathUtilFunc, math;
 
 procedure TanhFunc(var value : double);
 begin
-     value := tanh(value);
+     if value < -10 
+     then
+         value := -1
+     else if value > 10 
+     then
+         value := 1
+     else
+         value := tanh(value);
 end;
 
 { TSVMLearner }

@@ -25,17 +25,17 @@ uses
 type
   TfrmClassifierTest = class(TForm)
     GroupBox1: TGroupBox;
-    Button1: TButton;
+    butCreateGaussSet: TButton;
     PaintBox1: TPaintBox;
-    Button2: TButton;
-    Button3: TButton;
+    butDecissionStump: TButton;
+    butAdaBoost: TButton;
     Label1: TLabel;
     lblLearnError: TLabel;
-    Button4: TButton;
-    Button5: TButton;
+    butGentleBoost: TButton;
+    butBagging: TButton;
     Button6: TButton;
     GroupBox2: TGroupBox;
-    Button7: TButton;
+    butImgRobustFischerLDA: TButton;
     Label2: TLabel;
     lblUnseen: TLabel;
     lblOrigLabels: TLabel;
@@ -45,8 +45,7 @@ type
     rbRobustFischer: TRadioButton;
     rbFastRobustFisher: TRadioButton;
     Button8: TButton;
-    Button9: TButton;
-    Button10: TButton;
+    butSVM: TButton;
     edFaceDB: TEdit;
     Label4: TLabel;
     pbBoostProgress: TProgressBar;
@@ -56,30 +55,33 @@ type
     butAdaBoostLoad: TButton;
     odAdaBoost: TOpenDialog;
     butC45: TButton;
-    btnNaiveBayes: TButton;
+    butNaiveBayes: TButton;
     chkAutoMerge: TCheckBox;
-    Button11: TButton;
-    Button12: TButton;
+    butRBF: TButton;
+    butKMean: TButton;
     butNeuralNet: TButton;
-    procedure Button1Click(Sender: TObject);
+    butIntImgTest: TButton;
+    butLDA: TButton;
+    procedure butCreateGaussSetClick(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure Button2Click(Sender: TObject);
-    procedure Button3Click(Sender: TObject);
-    procedure Button4Click(Sender: TObject);
-    procedure Button5Click(Sender: TObject);
+    procedure butDecissionStumpClick(Sender: TObject);
+    procedure butAdaBoostClick(Sender: TObject);
+    procedure butGentleBoostClick(Sender: TObject);
+    procedure butBaggingClick(Sender: TObject);
     procedure Button6Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
-    procedure Button7Click(Sender: TObject);
-    procedure Button9Click(Sender: TObject);
-    procedure Button10Click(Sender: TObject);
+    procedure butImgRobustFischerLDAClick(Sender: TObject);
+    procedure butSVMClick(Sender: TObject);
+    procedure butIntImgTestClick(Sender: TObject);
     procedure btnFaceBoostingClick(Sender: TObject);
     procedure butAdaBoostLoadClick(Sender: TObject);
     procedure butC45Click(Sender: TObject);
-    procedure btnNaiveBayesClick(Sender: TObject);
-    procedure Button11Click(Sender: TObject);
-    procedure Button12Click(Sender: TObject);
+    procedure butNaiveBayesClick(Sender: TObject);
+    procedure butRBFClick(Sender: TObject);
+    procedure butKMeanClick(Sender: TObject);
     procedure butNeuralNetClick(Sender: TObject);
+    procedure butLDAClick(Sender: TObject);
   private
     { Private-Deklarationen }
     fFace1, fFace2 : TBitmap;
@@ -120,7 +122,7 @@ uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
      IncrementalFischerLDA, FischerIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
      BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF, 
-     kmeans, NeuralNetwork, JSONReaderWriter;
+     kmeans, NeuralNetwork, JSONReaderWriter, OptimizedFuncs;
 
 {$R *.dfm}
 
@@ -258,7 +260,7 @@ begin
      end;
 end;
 
-procedure TfrmClassifierTest.btnNaiveBayesClick(Sender: TObject);
+procedure TfrmClassifierTest.butNaiveBayesClick(Sender: TObject);
 var learner : TNaiveBayesLearner;
     props : TNaiveBayesProps;
 begin
@@ -287,7 +289,7 @@ begin
 end;
 
 
-procedure TfrmClassifierTest.Button10Click(Sender: TObject);
+procedure TfrmClassifierTest.butIntImgTestClick(Sender: TObject);
 var pic : TPicture;
     bmp : TBitmap;
     img : IMatrix;
@@ -345,7 +347,7 @@ begin
 
 end;
 
-procedure TfrmClassifierTest.Button11Click(Sender: TObject);
+procedure TfrmClassifierTest.butRBFClick(Sender: TObject);
 var learner : TRadialBasisLearner;
     props : TRBFProperties;
 begin
@@ -420,7 +422,7 @@ end;
 
 
 
-procedure TfrmClassifierTest.Button12Click(Sender: TObject);
+procedure TfrmClassifierTest.butKMeanClick(Sender: TObject);
 var learner : TKMeansLearner;
     props : TKMeansProps;
 begin
@@ -441,6 +443,50 @@ begin
              learner.SetProps(props);
              learner.Init(fExamples);
              fClassifier := learner.Learn;
+          finally
+                 learner.Free;
+          end;
+     end;
+
+     PaintBox1.Repaint;
+     TestLearnError;
+end;
+
+procedure TfrmClassifierTest.butLDAClick(Sender: TObject);
+var learner : TFisherBatchLDALearner;
+    props : TFisherAugmentedBaseProps;
+begin
+     if Assigned(fExamples) then
+     begin
+          fClassifier.Free;
+          FreeAndNil(fClMapBmp);
+
+          FillChar(Props, sizeof(props), 0);
+          props.RobustPCAProps.NumSubSubSpaces := 1;
+          props.RobustPCAProps.SubSpaceSizes := 0.8;
+          props.RobustPCAProps.SubSpaceCutEPS := 0.99;
+          props.RobustPCAProps.Start := 90;
+          props.RobustPCAProps.Stop := 80;
+          props.RobustPCAProps.ReductionFactor := 0.75;
+          
+          props.UseFullSpace := True;
+          if rbFisherLDA.Checked
+          then
+              props.ClassifierType := ctFast
+          else if rbRobustFischer.Checked
+          then
+              props.ClassifierType := ctRobust
+          else
+              props.ClassifierType := ctFastRobust;
+
+          props.NumLDAVectorsToKeep := 1;
+          
+          learner := TFisherBatchLDALearner.Create;
+          try
+             learner.SetProperties(props);
+
+             Learner.Init(fExamples);
+             fClassifier := Learner.Learn;
           finally
                  learner.Free;
           end;
@@ -509,7 +555,7 @@ begin
      TestLearnError;
 end;
 
-procedure TfrmClassifierTest.Button1Click(Sender: TObject);
+procedure TfrmClassifierTest.butCreateGaussSetClick(Sender: TObject);
 const means : Array[0..3] of double = (3.5, 3.5, 4.5, 4.5);
       stdevs : array[0..3] of double = (0.4, 0.4, 0.5, 0.5); //(1, 1.5, 2, 0.5);
       classLabels : array[0..1] of integer = (-1, 1);
@@ -527,7 +573,7 @@ begin
      PaintBox1.Repaint;
 end;
 
-procedure TfrmClassifierTest.Button2Click(Sender: TObject);
+procedure TfrmClassifierTest.butDecissionStumpClick(Sender: TObject);
 var learner : TDecisionStumpLearner;
 begin
      if Assigned(fExamples) then
@@ -547,7 +593,7 @@ begin
      TestLearnError;
 end;
 
-procedure TfrmClassifierTest.Button3Click(Sender: TObject);
+procedure TfrmClassifierTest.butAdaBoostClick(Sender: TObject);
 var learner : TDiscreteAdaBoostLearner;
     props : TBoostProperties;
 begin
@@ -576,7 +622,7 @@ begin
      TestLearnError;
 end;
 
-procedure TfrmClassifierTest.Button4Click(Sender: TObject);
+procedure TfrmClassifierTest.butGentleBoostClick(Sender: TObject);
 var learner : TGentleBoostLearner;
     props : TBoostProperties;
 begin
@@ -605,7 +651,7 @@ begin
      TestLearnError;
 end;
 
-procedure TfrmClassifierTest.Button5Click(Sender: TObject);
+procedure TfrmClassifierTest.butBaggingClick(Sender: TObject);
 var learner : TVotedBaggingLearner;
     props : TVotedBaggingProps;
 begin
@@ -656,7 +702,7 @@ begin
      TestLearnError;
 end;
 
-procedure TfrmClassifierTest.Button7Click(Sender: TObject);
+procedure TfrmClassifierTest.butImgRobustFischerLDAClick(Sender: TObject);
 var props : TFisherAugmentedBaseProps;
     clProps : TFischerRobustLDAProps;
     examples : TCustomIncrementalLearnerExampleList;
@@ -666,8 +712,8 @@ begin
           ShowMessage('Face directory does not exists');
           exit;
      end;
-     fExamples.Free;
-     fClassifier.Free;
+     FreeAndNil(fExamples);
+     FreeAndNil(fClassifier);
 
      props.UseFullSpace := False;
      if rbFisherLDA.Checked
@@ -687,7 +733,7 @@ begin
      props.RobustPCAProps.ReductionFactor := 0.75;
      props.RobustPCAProps.SubSpaceCutEPS := 0.9;
 
-     if Sender = Button7 then
+     if Sender = butImgRobustFischerLDA then
      begin
           fExamples := TImageMatrixExampleList.Create('.\Faces\', ctGrayScale);
 
@@ -742,10 +788,11 @@ begin
      TestLearnError;
 end;
 
-procedure TfrmClassifierTest.Button9Click(Sender: TObject);
+procedure TfrmClassifierTest.butSVMClick(Sender: TObject);
 var learner : TSVMLearner;
     props : TSVMProps;
 begin
+     InitMathFunctions(False, False);
      if Assigned(fExamples) then
      begin
           fClassifier.Free;

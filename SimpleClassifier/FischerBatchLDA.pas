@@ -285,20 +285,22 @@ var pcaU, pcaMu, ldaV, eigVals: TDoubleMatrix;
 begin
      Result := nil;
      eigVals := nil;
-
+     pcaU := nil;
+     pcaMu := nil;
+     
      numClasses := IndexOfClasses(classIdx, classLabels);
      // this base classifier does not suppert reduction by now.
-     // todo: eventually just dismiss the eigenvectors (as proposed in the phd - the LDAonK classifier)
+     // todo: eventually just don't use the eigenvectors (as proposed in the phd - the LDAonK classifier)
      CreateBaseLDAClassifier(pcaU, pcaMu, eigVals, ldaV, classCenters, classLabels, classIdx, numClasses);
 
      if fProps.ClassifierType = ctFastRobust then
      begin
-          pcaU.Free;
-          pcaMu.Free;
+          FreeAndNil(pcaU);
+          FreeAndNil(pcaMu);
      end;
 
      eigVals.Free;
-     if not Assigned(pcaMu) then
+     if not Assigned(pcaMu) and (fProps.ClassifierType <> ctFastRobust) then
         raise ELDAException.Create('Error no pca matrix assigned');
 
      case fProps.ClassifierType of

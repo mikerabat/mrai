@@ -635,7 +635,7 @@ begin
               data := X.SubMatrix;
               QuickSort(data[0], sizeof(double), Length(data), DoubleSortFunc);
 
-              numNewElements := Max(fU.Width, Min(numElements - 1, Round(numElements*fProps.ReductionFactor)));
+              numNewElements := Min(numElements - 1, Max(fU.Width, Round(numElements*fProps.ReductionFactor)));
               if numNewElements <= 0 then
                  break;
 

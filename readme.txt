@@ -55,4 +55,4 @@ compatible with Delphi2007 and later versions.
 
 Developer:
 
-Rabatscher Michael contact via www.mrsoft.com
+Rabatscher Michael contact via www.mrsoft.org

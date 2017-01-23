@@ -55,6 +55,7 @@ type
     procedure LoadExamples; virtual; abstract;
 
     constructor Create(const aInitPercentage : double; aStrategy : TIncrementalLearnStrategy);
+    destructor Destroy; override;
   end;
 
 // #############################################################
@@ -246,6 +247,13 @@ begin
      fRndEng.Init(0);
 
      inherited Create;
+end;
+
+destructor TCustomIncrementalLearnerExampleList.Destroy;
+begin
+     fRndEng.Free;
+     
+     inherited;
 end;
 
 end.

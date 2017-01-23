@@ -60,25 +60,25 @@ object frmClassifierTest: TfrmClassifierTest
     Anchors = [akLeft, akTop, akRight]
     Caption = 'Simple Tests'
     TabOrder = 0
-    object Button1: TButton
+    object butCreateGaussSet: TButton
       Left = 14
       Top = 32
       Width = 139
       Height = 25
       Caption = 'Create 2D Gauss set'
       TabOrder = 0
-      OnClick = Button1Click
+      OnClick = butCreateGaussSetClick
     end
-    object Button2: TButton
+    object butDecissionStump: TButton
       Left = 14
       Top = 72
       Width = 139
       Height = 25
       Caption = 'Decission Stump'
       TabOrder = 1
-      OnClick = Button2Click
+      OnClick = butDecissionStumpClick
     end
-    object Button3: TButton
+    object butAdaBoost: TButton
       Left = 161
       Top = 72
       Width = 153
@@ -91,9 +91,9 @@ object frmClassifierTest: TfrmClassifierTest
       Font.Style = []
       ParentFont = False
       TabOrder = 2
-      OnClick = Button3Click
+      OnClick = butAdaBoostClick
     end
-    object Button4: TButton
+    object butGentleBoost: TButton
       Left = 161
       Top = 32
       Width = 153
@@ -106,25 +106,16 @@ object frmClassifierTest: TfrmClassifierTest
       Font.Style = []
       ParentFont = False
       TabOrder = 3
-      OnClick = Button4Click
+      OnClick = butGentleBoostClick
     end
-    object Button5: TButton
+    object butBagging: TButton
       Left = 320
       Top = 32
       Width = 153
       Height = 25
       Caption = 'Bagging Decission Stump'
       TabOrder = 4
-      OnClick = Button5Click
-    end
-    object Button10: TButton
-      Left = 638
-      Top = 72
-      Width = 149
-      Height = 25
-      Caption = 'Integral Image Test'
-      TabOrder = 5
-      OnClick = Button10Click
+      OnClick = butBaggingClick
     end
     object butC45: TButton
       Left = 479
@@ -132,35 +123,35 @@ object frmClassifierTest: TfrmClassifierTest
       Width = 42
       Height = 25
       Caption = 'C4.5'
-      TabOrder = 6
+      TabOrder = 5
       OnClick = butC45Click
     end
-    object btnNaiveBayes: TButton
+    object butNaiveBayes: TButton
       Left = 479
       Top = 72
-      Width = 153
+      Width = 106
       Height = 25
       Caption = 'Naive Bayes'
-      TabOrder = 7
-      OnClick = btnNaiveBayesClick
+      TabOrder = 6
+      OnClick = butNaiveBayesClick
     end
-    object Button11: TButton
+    object butRBF: TButton
       Left = 320
       Top = 72
       Width = 72
       Height = 25
       Caption = 'RBF'
-      TabOrder = 8
-      OnClick = Button11Click
+      TabOrder = 7
+      OnClick = butRBFClick
     end
-    object Button12: TButton
+    object butKMean: TButton
       Left = 398
       Top = 72
       Width = 75
       Height = 25
       Caption = 'KMean'
-      TabOrder = 9
-      OnClick = Button12Click
+      TabOrder = 8
+      OnClick = butKMeanClick
     end
     object butNeuralNet: TButton
       Left = 527
@@ -168,8 +159,17 @@ object frmClassifierTest: TfrmClassifierTest
       Width = 105
       Height = 25
       Caption = 'Neural Network'
-      TabOrder = 10
+      TabOrder = 9
       OnClick = butNeuralNetClick
+    end
+    object butLDA: TButton
+      Left = 686
+      Top = 72
+      Width = 101
+      Height = 25
+      Caption = 'Classic LDA'
+      TabOrder = 10
+      OnClick = butLDAClick
     end
   end
   object GroupBox2: TGroupBox
@@ -237,14 +237,14 @@ object frmClassifierTest: TfrmClassifierTest
       Height = 16
       Caption = 'FaceDB'
     end
-    object Button7: TButton
+    object butImgRobustFischerLDA: TButton
       Left = 16
       Top = 140
       Width = 257
       Height = 25
       Caption = 'Robust Fischer LDA - Augmented Basis'
       TabOrder = 0
-      OnClick = Button7Click
+      OnClick = butImgRobustFischerLDAClick
     end
     object chkBlendPart: TCheckBox
       Left = 168
@@ -287,7 +287,7 @@ object frmClassifierTest: TfrmClassifierTest
       Height = 25
       Caption = 'Incremental Fischer LDA'
       TabOrder = 5
-      OnClick = Button7Click
+      OnClick = butImgRobustFischerLDAClick
     end
     object edFaceDB: TEdit
       Left = 51
@@ -350,15 +350,25 @@ object frmClassifierTest: TfrmClassifierTest
       TabOrder = 12
       WordWrap = True
     end
+    object butIntImgTest: TButton
+      Left = 216
+      Top = 428
+      Width = 75
+      Height = 25
+      Caption = 'Int Img Test'
+      TabOrder = 13
+      Visible = False
+      OnClick = butIntImgTestClick
+    end
   end
-  object Button9: TButton
+  object butSVM: TButton
     Left = 646
     Top = 32
     Width = 149
     Height = 25
     Caption = 'Support Vector Machines'
     TabOrder = 2
-    OnClick = Button9Click
+    OnClick = butSVMClick
   end
   object sdSaveAdaBoost: TSaveDialog
     DefaultExt = 'cls'
