@@ -230,7 +230,7 @@ begin
            raise ELDAException.Create('Error singular Sw');
         Sw.MultInPlace(Sb);
         FreeAndNil(Sb);
-        if Sw.SVD(U, S, V) <> srOk then
+        if Sw.SVD(U, V, S) <> srOk then
            raise ELDAException.Create('Error LDA matrix cannot be computed');
 
         FreeAndNil(V);
@@ -478,7 +478,8 @@ begin
         try
            W.Free;
 
-           V.TransposeInPlace;
+           // v is returned as V transpose
+           //V.TransposeInPlace;
            FreeAndNil(vhat);
 
            // orthogonalize
