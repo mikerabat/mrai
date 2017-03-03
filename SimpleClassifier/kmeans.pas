@@ -42,9 +42,11 @@ type
   private
     fCenters : IMatrix;
     fClassVals : TIntegerDynArray;
+    fSigma1Dist : TDoubleDynArray;
   protected
     function OnLoadObject(const Name: string; obj: TBaseMathPersistence): boolean; override;
     procedure OnLoadIntArr(const Name : String; const Value : TIntegerDynArray); override;
+    procedure OnLoadDoubleArr(const Name : String; const Value : TDoubleDynArray); override;
     function ClassifyWithMtx(mtx : TDoubleMatrix; var confidence : double) : integer;
 
     procedure DefineProps; override;
@@ -53,6 +55,8 @@ type
   public
     property Centers : IMatrix read fCenters;
     function Classify(Example : TCustomExample; var confidence : double) : integer; override;
+
+    procedure SetSigma1Dist(sigmas : TDoubleDynArray);
 
     constructor Create(centers : IMatrix; const classVals : TIntegerDynArray);
   end;
@@ -118,7 +122,10 @@ begin
      fCenters.UseFullMatrix;
 
      Result := fClassVals[clIdx];
-     confidence := 0;   
+     confidence := minDist;
+
+     if (Length(fSigma1Dist) > 0) and (fSigma1Dist[clIdx] > 0) then
+        confidence := exp( -sqr(minDist)/(2*fSigma1Dist[clIdx]) );
 end;
 
 function TKMeans.Classify(Example: TCustomExample;
@@ -126,6 +133,7 @@ function TKMeans.Classify(Example: TCustomExample;
 var counter : integer;
     exmplMtx : TDoubleMatrix;
 begin
+     confidence := 0;
      exmplMtx := TDoubleMatrix.Create(1, Example.FeatureVec.FeatureVecLen);
      try
         for counter := 0 to exmplMtx.Height - 1 do
@@ -152,6 +160,7 @@ end;
 
 const cClassLabels = 'labels';
       cCenter = 'centers';
+      cSigmaDist = 'sigmaDist';
 
 
 procedure TKMeans.DefineProps;
@@ -160,6 +169,7 @@ begin
 
      AddIntArr(cClassLabels, fClassVals);
      AddObject(cCenter, fCenters.GetObjRef);
+     AddDoubleArr(cSigmaDist, fSigma1Dist);
 end;
 
 function TKMeans.PropTypeOfName(const Name: string): TPropType;
@@ -194,6 +204,20 @@ begin
          Result := inherited OnLoadObject(Name, obj);
 end;
 
+procedure TKMeans.OnLoadDoubleArr(const Name: String;
+  const Value: TDoubleDynArray);
+begin
+     if SameText(Name, cSigmaDist)
+     then
+         fSigma1Dist := Value
+     else
+         inherited;
+end;
+
+procedure TKMeans.SetSigma1Dist(sigmas: TDoubleDynArray);
+begin
+     fSigma1Dist := sigmas;
+end;
 
 { TKMeansLearner }
 
@@ -257,12 +281,21 @@ var centers : IMatrix;
     srtData : TDoubleDynArray;
     srtIdx : TIntegerDynArray;
     sumIdx : integer;
+    distSigmas : TDoubleDynArray;
+    distances : TDoubleMatrix;
+    numCorrect : Integer;
+    idx : integer;
+    numClasses : integer;
+    clIdxArr : TIntIntArray;
+    distSigmaCenters : TDoubleDynArray;
 begin
      // weights are used in this algorithm only in the mean calculation where the centers move!
 
      // ###########################################
      // #### Initialize data
-     IndexOfClasses(fclIdx, fclassVals);
+     IndexOfClasses(clIdxArr, fclassVals);
+     fclIdx := Copy(clIdxArr, 0, Length(clIdxArr));
+     numClasses := Length(fclassVals);
 
      // in case we don't have the per cluster property set:
      if not fProps.searchPerClass then
@@ -502,6 +535,47 @@ begin
                centClasses[counter] := fclassVals[maxIdx];
           end;
      end;
+
+     // #####################################################
+     // #### Calculate the distances from the center for all examples
+     // -> these are used to calculate the sigmas
+     SetLength(distSigmas, numClasses);
+
+     distances := TDoubleMatrix.Create;
+     for clIdx := 0 to numClasses - 1 do
+     begin
+          numCorrect := 0;
+          distances.SetWidthHeight(Length(clIdxArr[clIdx]), 1);
+          for counter := 0 to Length(clIdxArr[clIdx]) - 1 do
+          begin
+               idx := clIdxArr[clIdx][counter];
+               if Result.Classify( DataSet.Example[ idx ], conf ) = DataSet.Example[ idx ].ClassVal then
+               begin
+                    distances.vec[numCorrect] := conf;
+                    inc(numCorrect);
+               end;
+          end;
+
+          if numCorrect > 1 then
+          begin
+               distances.SetSubMatrix(0, 0, numCorrect, 1);
+               distances.VarianceInPlace(True);
+               distSigmas[clIdx] := distances.Vec[0];
+          end;
+     end;
+     distances.Free;
+
+     SetLength(distSigmaCenters, Length(centClasses));
+     for clIdx := 0 to numClasses - 1 do
+     begin
+          for counter := 0 to Length(distSigmaCenters) - 1 do
+          begin
+               if fclassVals[clIdx] = centClasses[counter] then
+                  distSigmaCenters[counter] := distSigmas[clIdx];
+          end;
+     end;
+
+     TKMeans(Result).SetSigma1Dist(distSigmaCenters);
 end;
 
 function TKMeansLearner.MatrixDataSet(out ownsObj: boolean): TDoubleMatrix;

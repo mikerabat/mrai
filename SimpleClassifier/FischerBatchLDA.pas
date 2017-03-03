@@ -271,7 +271,7 @@ end;
 destructor TFisherBatchLDALearner.Destroy;
 begin
      fPCA.Free;
-     
+
      inherited;
 end;
 
@@ -280,14 +280,21 @@ function TFisherBatchLDALearner.DoLearn(
 var pcaU, pcaMu, ldaV, eigVals: TDoubleMatrix;
     classCenters: TDoubleMatrixDynArr;
     numClasses : integer;
+    counter : integer;
     classLabels : TIntegerDynArray;
     classIdx : TIntIntArray;
+    distSigmas : TDoubleDynArray;
+    clIdx: Integer;
+    distances : TDoubleMatrix;
+    numCorrect : integer;
+    conf : double;
+    idx : integer;
 begin
      Result := nil;
      eigVals := nil;
      pcaU := nil;
      pcaMu := nil;
-     
+
      numClasses := IndexOfClasses(classIdx, classLabels);
      // this base classifier does not suppert reduction by now.
      // todo: eventually just don't use the eigenvectors (as proposed in the phd - the LDAonK classifier)
@@ -316,6 +323,38 @@ begin
      end;
 
      fPCA := nil;
+
+     // #####################################################
+     // #### Calculate the distances from the center for all examples
+     // -> these are used to calculate the sigmas
+     SetLength(distSigmas, numClasses);
+
+     distances := TDoubleMatrix.Create;
+     for clIdx := 0 to numClasses - 1 do
+     begin
+          numCorrect := 0;
+          distances.SetWidthHeight(Length(classIdx[clIdx]), 1);
+          for counter := 0 to Length(classIdx[clIdx]) - 1 do
+          begin
+               idx := classIdx[clIdx][counter];
+               if Result.Classify( DataSet.Example[ idx ], conf ) = DataSet.Example[ idx ].ClassVal then
+               begin
+                    distances.vec[numCorrect] := conf;
+                    inc(numCorrect);
+               end;
+          end;
+
+          if numCorrect > 1 then
+          begin
+               distances.SetSubMatrix(0, 0, numCorrect, 1);
+               distances.VarianceInPlace(True);
+               distSigmas[clIdx] := distances.Vec[0];
+          end;
+     end;
+
+     TFischerLDAClassifier(Result).SetSigmaDist(distSigmas);
+
+     distances.Free;
 end;
 
 function TFisherBatchLDALearner.ExtractMatrixData(

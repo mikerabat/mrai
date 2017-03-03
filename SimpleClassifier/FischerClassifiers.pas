@@ -33,12 +33,15 @@ type
     fmeanU : TDoubleMatrix;
     fV : TDoubleMatrix;
     fClassCenters : TDoubleMatrixDynArr;
+    fSigma1Dists : TDoubleDynArray;   // defines the distance to the class center with one sigma
+                                      // aka confidence = 0.606
     fClassLabels : TIntegerDynArray;
     fActReaderIndex : integer;
     fOnReconstruct : TOnReconstructExample;
     fIsInList : boolean;
+    fConfidence : double;
 
-    function ProjectTOPcaSpace(Example : TCustomExample) : TDoubleMatrix; virtual;
+    function ProjectToPcaSpace(Example : TCustomExample) : TDoubleMatrix; virtual;
     function ProjectToLDASpaceAndClassify(a : TDoubleMatrix) : integer;
   protected
     procedure OnLoadBeginList(const Name : String; count : integer); override;
@@ -46,6 +49,7 @@ type
     function OnLoadObject(Obj : TBaseMathPersistence) : boolean; overload; override;
     function OnLoadObject(const Name : String; Obj : TBaseMathPersistence) : boolean; overload; override;
     procedure OnLoadIntArr(const Name : String; const Value : TIntegerDynArray); override;
+    procedure OnLoadDoubleArr(const Name : String; const Value : TDoubleDynArray); override;
     procedure DefineProps; override;
     function PropTypeOfName(const Name : string) : TPropType; override;
   public
@@ -53,6 +57,8 @@ type
     function BackProjectedCenters : TDoubleMatrixDynArr; virtual;
 
     function Classify(Example : TCustomExample; var confidence : double) : integer; override;
+
+    procedure SetSigmaDist(const classSigmaDist : TDoubleDynArray );
 
     constructor Create(U, meanU, V : TDoubleMatrix; const classCenters : TDoubleMatrixDynArr; const classLabels : TIntegerDynArray; doTransPoseU : boolean = True);
     destructor Destroy; override;
@@ -88,7 +94,7 @@ type
     fTheta : double;
 
     fProps : TFischerRobustLDAProps;
-    function ProjectTOPcaSpace(Example : TCustomExample) : TDoubleMatrix; override;
+    function ProjectToPcaSpace(Example : TCustomExample) : TDoubleMatrix; override;
   public
     function BackProjectedCenters : TDoubleMatrixDynArr; override;
 
@@ -146,11 +152,14 @@ begin
      finally
             a.Free;
      end;
+
+     confidence := fConfidence;
 end;
 
 constructor TFischerLDAClassifier.Create(U, meanU, V: TDoubleMatrix;
   const classCenters: TDoubleMatrixDynArr;
-  const classLabels: TIntegerDynArray; doTransPoseU : boolean);
+  const classLabels: TIntegerDynArray;
+  doTransPoseU : boolean = True);
 begin
      assert(High(classLabels) = High(classCenters), 'Dimension error');
 
@@ -162,6 +171,7 @@ begin
      fV := V;
      fClassCenters := classCenters;
      fClassLabels := classLabels;
+     fSigma1Dists := nil;
 
      inherited Create;
 end;
@@ -180,6 +190,9 @@ begin
 
      if Length(fClassLabels) > 0 then
         AddIntArr('FisherLabels', fClassLabels);
+
+     if Length(fSigma1Dists) > 0 then
+        AddDoubleArr('SigmaDist', fSigma1Dists);
 end;
 
 function TFischerLDAClassifier.PropTypeOfName(const Name: string): TPropType;
@@ -226,6 +239,16 @@ procedure TFischerLDAClassifier.OnLoadEndList;
 begin
      fIsInList := False;
      assert(fActReaderIndex = Length(fClassCenters), 'Error the object could not be read');
+end;
+
+procedure TFischerLDAClassifier.OnLoadDoubleArr(const Name: String;
+  const Value: TDoubleDynArray);
+begin
+     if CompareText(Name, 'SigmaDist') = 0
+     then
+         fSigma1Dists := Value
+     else
+         inherited;
 end;
 
 procedure TFischerLDAClassifier.OnLoadIntArr(const Name: String;
@@ -295,6 +318,10 @@ begin
      // #### Minimum distance define the class
      Result := fClassLabels[0];
      minDist := distances[0];
+     fConfidence := 0;
+
+     if (Length(fSigma1Dists) > 0) and (fSigma1Dists[0] > 0) then
+        fConfidence := exp( -sqr(minDist)/(2*fSigma1Dists[0]) );
 
      for i := 1 to Length(distances) - 1 do
      begin
@@ -302,8 +329,17 @@ begin
           begin
                minDist := distances[i];
                Result := fClassLabels[i];
+
+               if (Length(fSigma1Dists) > 0) and (fSigma1Dists[i] > 0)
+               then
+                   fConfidence := exp( -sqr(minDist)/(2*fSigma1Dists[i]) )
+               else
+                   fConfidence := 0;
           end;
      end;
+
+     if Length(fSigma1Dists) = 0 then
+        fConfidence := minDist;
 end;
 
 function TFischerLDAClassifier.ProjectTOPcaSpace(Example: TCustomExample): TDoubleMatrix;
@@ -745,6 +781,12 @@ begin
      finally
             exmplMeanReduced.Free;
      end;
+end;
+
+procedure TFischerLDAClassifier.SetSigmaDist(
+  const classSigmaDist: TDoubleDynArray);
+begin
+     fSigma1Dists := classSigmaDist;
 end;
 
 { TFischerRobustExLDAClassifier }

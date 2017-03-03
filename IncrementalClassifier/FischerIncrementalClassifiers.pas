@@ -221,6 +221,9 @@ var a : TDoubleMatrix;
     recon : TDoubleMatrix;
 begin
      assert(Example.FeatureVec.FeatureVecLen = PCAData.Mean.Height, 'Dimension error');
+
+     confidence := 0;
+
      // ##############################################################
      // #### Project to feature space
      // derrived classes can implement here some kind of robust projection to the feature space

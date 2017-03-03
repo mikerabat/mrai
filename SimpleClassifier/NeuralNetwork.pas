@@ -815,11 +815,16 @@ begin
       
      // maximum wins
      maxIdx := 0;
+     confidence := ok[0];
 
      for counter := 0 to Length(ok) - 1 do
          if ok[maxIdx] < ok[counter] then
-            maxIdx := counter;
+         begin
+              maxIdx := counter;
+              confidence := Max(0, ok[counter]);
+         end;
 
+     confidence := max(0, Min(1, confidence));
      Result := fClasses[maxIdx];
 end;
 

@@ -1288,19 +1288,6 @@ begin
         PaintKMeansCenters(TKMeans( fClassifier ) );
 
      PaintBox1.Canvas.Brush.Style := bsSolid;
-     // paint for each example one dot
-     for i := 0 to fExamples.Count - 1 do
-     begin
-          x := Trunc(((fExamples[i].FeatureVec[0] - minXVal)*xDim));
-          y := Trunc(PaintBox1.Height - (fExamples[i].FeatureVec[1] - minYVal)*yDim);
-
-          assert((x >= 0) and (x <= PaintBox1.Width), 'Error x out of bounds');
-          assert((y >= 0) and (y <= PaintBox1.Height), 'Error y out of bounds');
-
-          PaintBox1.Canvas.Pen.Color := cColors[fExamples[i].ClassVal];
-          PaintBox1.Canvas.Brush.Color := cColors[fExamples[i].ClassVal];
-          PaintBox1.Canvas.Ellipse(x - 2, y - 2, x + 2, y + 2);
-     end;
 
      if Assigned(fClassifier) and (fClassifier is TDecisionStump) then
      begin
@@ -1319,6 +1306,19 @@ begin
                y := Trunc(PaintBox1.Height - (fExamples[i].FeatureVec[1] - minYVal)*yDim);
 
                PaintBox1.Canvas.Pen.Color := cColors[cl.Classify(fExamples[i], conf)];
+               PaintBox1.Canvas.Brush.Color := PaintBox1.Canvas.Pen.Color;
+               if conf > 0 then
+               begin
+                    PaintBox1.Canvas.Brush.style := bsSolid;
+                    PaintBox1.Canvas.Brush.Color := PaintBox1.Canvas.Brush.Color or
+                                            Integer( RGB( Trunc($7f + Max(0, Min(1, 1 - conf))*$80),
+                                                  Trunc($7f + Max(0, Min(1, 1 - conf))*$80),
+                                                  Trunc($7f + Max(0, Min(1, 1 - conf))*$80)
+                                                    ));
+               end
+               else
+                   PaintBox1.Canvas.Brush.style := bsClear;
+
                PaintBox1.Canvas.Ellipse(x - 4, y - 4, x + 4, y + 4);
           end;
 
@@ -1338,6 +1338,8 @@ begin
           if cl is TFischerLDAClassifier then
           begin
                PaintBox1.Canvas.Pen.Color := clMaroon;
+               PaintBox1.Canvas.Brush.Style := bsClear;
+
                centers := TFischerLDAClassifier(cl).BackProjectedCenters;
                try
                   for i := 0 to length(centers) - 1 do
@@ -1381,6 +1383,20 @@ begin
                           centers[i].Free;
                end;
           end;
+     end;
+
+     // paint for each example one dot
+     for i := 0 to fExamples.Count - 1 do
+     begin
+          x := Trunc(((fExamples[i].FeatureVec[0] - minXVal)*xDim));
+          y := Trunc(PaintBox1.Height - (fExamples[i].FeatureVec[1] - minYVal)*yDim);
+
+          assert((x >= 0) and (x <= PaintBox1.Width), 'Error x out of bounds');
+          assert((y >= 0) and (y <= PaintBox1.Height), 'Error y out of bounds');
+
+          PaintBox1.Canvas.Pen.Color := cColors[fExamples[i].ClassVal];
+          PaintBox1.Canvas.Brush.Color := cColors[fExamples[i].ClassVal];
+          PaintBox1.Canvas.Ellipse(x - 2, y - 2, x + 2, y + 2);
      end;
 end;
 
