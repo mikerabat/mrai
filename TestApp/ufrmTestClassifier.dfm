@@ -3,7 +3,7 @@ object frmClassifierTest: TfrmClassifierTest
   Top = 0
   Caption = 'Classification Test'
   ClientHeight = 593
-  ClientWidth = 831
+  ClientWidth = 822
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -14,20 +14,21 @@ object frmClassifierTest: TfrmClassifierTest
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   DesignSize = (
-    831
+    822
     593)
   PixelsPerInch = 96
   TextHeight = 16
   object PaintBox1: TPaintBox
     Left = 9
     Top = 152
-    Width = 501
+    Width = 492
     Height = 433
     Anchors = [akLeft, akTop, akRight, akBottom]
     OnPaint = PaintBox1Paint
+    ExplicitWidth = 501
   end
   object Label1: TLabel
-    Left = 22
+    Left = 127
     Top = 119
     Width = 144
     Height = 16
@@ -40,8 +41,8 @@ object frmClassifierTest: TfrmClassifierTest
     ParentFont = False
   end
   object lblLearnError: TLabel
-    Left = 182
-    Top = 121
+    Left = 284
+    Top = 119
     Width = 8
     Height = 16
     Caption = '0'
@@ -55,7 +56,7 @@ object frmClassifierTest: TfrmClassifierTest
   object GroupBox1: TGroupBox
     Left = 8
     Top = 0
-    Width = 815
+    Width = 806
     Height = 113
     Anchors = [akLeft, akTop, akRight]
     Caption = 'Simple Tests'
@@ -172,8 +173,8 @@ object frmClassifierTest: TfrmClassifierTest
       OnClick = butLDAClick
     end
   end
-  object GroupBox2: TGroupBox
-    Left = 516
+  object grpFaces: TGroupBox
+    Left = 507
     Top = 119
     Width = 307
     Height = 466
@@ -240,7 +241,7 @@ object frmClassifierTest: TfrmClassifierTest
     object butImgRobustFischerLDA: TButton
       Left = 16
       Top = 140
-      Width = 257
+      Width = 281
       Height = 25
       Caption = 'Robust Fischer LDA - Augmented Basis'
       TabOrder = 0
@@ -283,7 +284,7 @@ object frmClassifierTest: TfrmClassifierTest
     object Button8: TButton
       Left = 16
       Top = 171
-      Width = 257
+      Width = 281
       Height = 25
       Caption = 'Incremental Fischer LDA'
       TabOrder = 5
@@ -369,6 +370,15 @@ object frmClassifierTest: TfrmClassifierTest
     Caption = 'Support Vector Machines'
     TabOrder = 2
     OnClick = butSVMClick
+  end
+  object chkConfidence: TCheckBox
+    Left = 8
+    Top = 120
+    Width = 112
+    Height = 17
+    Caption = 'Confidence Map'
+    TabOrder = 3
+    OnClick = chkConfidenceClick
   end
   object sdSaveAdaBoost: TSaveDialog
     DefaultExt = 'cls'

@@ -34,7 +34,7 @@ type
     butGentleBoost: TButton;
     butBagging: TButton;
     Button6: TButton;
-    GroupBox2: TGroupBox;
+    grpFaces: TGroupBox;
     butImgRobustFischerLDA: TButton;
     Label2: TLabel;
     lblUnseen: TLabel;
@@ -62,6 +62,7 @@ type
     butNeuralNet: TButton;
     butIntImgTest: TButton;
     butLDA: TButton;
+    chkConfidence: TCheckBox;
     procedure butCreateGaussSetClick(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -82,6 +83,7 @@ type
     procedure butKMeanClick(Sender: TObject);
     procedure butNeuralNetClick(Sender: TObject);
     procedure butLDAClick(Sender: TObject);
+    procedure chkConfidenceClick(Sender: TObject);
   private
     { Private-Deklarationen }
     fFace1, fFace2 : TBitmap;
@@ -1131,6 +1133,7 @@ end;
 
 procedure PaintCLBoundary(cl : TCustomClassifier; polyLine : boolean);
 var map : Array of Array of integer;
+    conf : Array of Array of double;
     aMtx : TDoubleMatrix;
     xmpl : TMatrixExample;
     x, y : integer;
@@ -1173,6 +1176,21 @@ begin
           pts[minIdx] := hlp; 
      end;
 end;
+function ColorizeConf(color : TColor; conf : double) : TColor;
+begin
+     // we have red and blue
+     Result := color or
+                 Integer( RGB( Trunc($7f + Max(0, Min(1, 1 - conf))*$80),
+                                                  Trunc($7f + Max(0, Min(1, 1 - conf))*$80),
+                                                  Trunc($7f + Max(0, Min(1, 1 - conf))*$80)
+                                                    ));
+
+     //Result := color or
+//                 Integer( RGB( Trunc($0 + Max(0, Min(1, 1 - conf))*$FF),
+//                                                  Trunc($0 + Max(0, Min(1, 1 - conf))*$FF),
+//                                                  Trunc($0 + Max(0, Min(1, 1 - conf))*$FF)
+//                                                    ));
+end;
 begin
      if not Assigned(fClMapBmp) then
      begin
@@ -1181,6 +1199,7 @@ begin
 
           // classify each pixel and set it's color if neighbouring pixels are different
           SetLength(map, PaintBox1.Height div divider, PaintBox1.Width div divider);
+          SetLength(conf, PaintBox1.Height div divider, PaintBox1.Width div divider);
 
           aMtx := TDoubleMatrix.Create(1, 2);
           xmpl := TMatrixExample.Create(aMtx, false);
@@ -1192,7 +1211,7 @@ begin
                     aMtx.Vec[0] := minXVal + divider*x/xDim;
                     aMtx.Vec[1] := minYVal + divider*y/yDim;
                     
-                    map[PaintBox1.Height div divider - y - 1][x] := cl.Classify(xmpl);
+                    map[PaintBox1.Height div divider - y - 1][x] := cl.Classify(xmpl, conf[PaintBox1.Height div divider - y - 1][x]);
                end;
           end;
           xmpl.Free;
@@ -1201,9 +1220,30 @@ begin
           fClMapBmp.Canvas.Brush.Color := PaintBox1.Color;
           fClMapBmp.Canvas.FillRect(Rect(0, 0, fClMapBmp.Width, fClMapBmp.Height));
 
+          if chkConfidence.Checked then
+          begin
+               fClMapBmp.canvas.Brush.Style := bsSolid;
+
+               for y := 0 to Length(conf) - 1 do
+               begin
+                    for x := 0 to Length(conf[0]) - 1 do
+                    begin
+                         if conf[y][x] <> 0 then
+                         begin
+                              fClMapBmp.Canvas.Brush.Color := ColorizeConf(cColors[map[y][x]], conf[y][x]);
+
+                              fClMapBmp.Canvas.FillRect(Rect(x*divider,
+                                                            y*divider,
+                                                            x*divider + divider + 1,
+                                                            y*divider + divider + 1));
+                         end;
+                    end;
+               end;
+          end;
+
           fClMapBmp.Canvas.Brush.Color := clDkGray;
           fClMapBmp.canvas.Brush.Style := bsSolid;
-          
+
           // check in x direction
           if not polyLine then
           begin
@@ -1213,9 +1253,9 @@ begin
                         if (map[y][x-1] <> map[y][x]) or
                            (map[y-1][x] <> map[y][x]) then
                         begin
-                             fClMapBmp.Canvas.FillRect(Rect(x*divider - 1, 
+                             fClMapBmp.Canvas.FillRect(Rect(x*divider - 1,
                                                             y*divider - 1,
-                                                            x*divider + 2, 
+                                                            x*divider + 2,
                                                             y*divider + 2));
                         end;
                end;
@@ -1230,7 +1270,7 @@ begin
                begin
                     for x := 1 to Length(map[0]) - 1 do
                         if ((map[y][x-1] <> map[y][x])) or
-                           ((map[y-1][x] <> map[y][x])) then 
+                           ((map[y-1][x] <> map[y][x])) then
                         begin
                              pts[numPts].X := x*divider;
                              pts[numPts].Y := y*divider;
@@ -1239,7 +1279,7 @@ begin
                end;
 
                OrderPts;
-               
+
                fClMapBmp.Canvas.Pen.Color := clDkGray;
                fClMapBmp.Canvas.Polyline(Copy(pts, 0, numPts));
           end;
@@ -1306,19 +1346,6 @@ begin
                y := Trunc(PaintBox1.Height - (fExamples[i].FeatureVec[1] - minYVal)*yDim);
 
                PaintBox1.Canvas.Pen.Color := cColors[cl.Classify(fExamples[i], conf)];
-               PaintBox1.Canvas.Brush.Color := PaintBox1.Canvas.Pen.Color;
-               if conf > 0 then
-               begin
-                    PaintBox1.Canvas.Brush.style := bsSolid;
-                    PaintBox1.Canvas.Brush.Color := PaintBox1.Canvas.Brush.Color or
-                                            Integer( RGB( Trunc($7f + Max(0, Min(1, 1 - conf))*$80),
-                                                  Trunc($7f + Max(0, Min(1, 1 - conf))*$80),
-                                                  Trunc($7f + Max(0, Min(1, 1 - conf))*$80)
-                                                    ));
-               end
-               else
-                   PaintBox1.Canvas.Brush.style := bsClear;
-
                PaintBox1.Canvas.Ellipse(x - 4, y - 4, x + 4, y + 4);
           end;
 
@@ -1555,6 +1582,13 @@ begin
      finally
             labels.Free;
      end;
+end;
+
+procedure TfrmClassifierTest.chkConfidenceClick(Sender: TObject);
+begin
+     FreeAndNil(fClMapBmp);
+
+     PaintBox1.Invalidate;
 end;
 
 end.

@@ -238,6 +238,8 @@ begin
      end;
      
      Result := fClassVals[maxIdx];
+
+     confidence := Max(0, Min(1, maxVal));
 end;
 
 function TRBFClassifier.MapToRBFSpace(data : TDoubleMatrix) : TDoubleMatrix;

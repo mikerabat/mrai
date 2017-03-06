@@ -59,6 +59,8 @@ type
     fProps : TSVMProps;
     fClassVal1, fClassVal2 : integer;
 
+    fConfA, fConfB : double;
+
     function AugmentedExample(Example : TCustomExample) : IMatrix;
     function PolyKernel(Example : TCustomExample) : IMatrix;
     function SigmoidKernel(Example : TCustomExample) : IMatrix;
@@ -94,6 +96,9 @@ type
     fBias : IMatrix;
 
     fVectIdx : TIntegerDynArray;
+
+    // determines the sigmoid probabilistics according to the svm output.
+    procedure SigmoidTraining( cl : TSVMClassifier; var confA, confB : double);
 
     function PolyKernelData(augTrainSet : IMatrix) : IMatrix;
     function GaussKernelData(augTrainSet : IMatrix) : IMatrix;
@@ -181,6 +186,8 @@ var augExmpl : IMatrix;
     scaleFact : IMatrix;
     ones : IMatrix;
     tmp : IMatrix;
+
+    //fDists : TDoubleDynArray;
 begin
      numCl := IndexOfClasses(idx, cl);
      if numCl <> 2 then
@@ -199,7 +206,7 @@ begin
 
      scaleMean := nil;
      scaleFact := nil;
-     
+
      // ###########################################
      // #### Data scaling
      if fProps.autoScale then
@@ -230,7 +237,7 @@ begin
 
           augExmpl.UseFullMatrix;
      end;
-     
+
      // ###########################################
      // #### Applying the kernel
      case fProps.kernelType of
@@ -268,6 +275,10 @@ begin
      // ##############################################
      // #### Construct classifier object
      Result := TSVMClassifier.Create(fProps, faStar, sv, fBias, cl[0], cl[1], scaleMean, scaleFact);
+
+     // ##############################################
+     // #### Create confidence parameters
+     SigmoidTraining(TSVMClassifier(Result), TSVMClassifier(Result).fConfA, TSVMClassifier(Result).fConfB);
 end;
 
 procedure TSVMLearner.LearnLagrangian(y : IMatrix);
@@ -545,6 +556,7 @@ end;
 function TSVMClassifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var x : IMatrix;
+
 begin
      // kernel evaluation
      case fProps.kernelType of
@@ -566,6 +578,25 @@ begin
          Result := fClassVal1
      else
          Result := fClassVal2;
+
+     // confidence defined as 1/(1 + exp(a * f(input) + b))
+     // defined in Probalistic Outputs for Support Vector Machines and comparisons to regularized likelihood methods
+     if (fConfA <> 0) and (fConfB <> 0) then
+     begin
+          confidence := fConfA*confidence + fConfB;
+
+          // intervall check to avoid over/underflow
+          if confidence > 12
+          then
+              confidence := 0
+          else if confidence < -12
+          then
+              confidence := 1
+          else
+              confidence := 1/(1 + exp(confidence));
+
+          confidence := 1 - confidence;
+     end;
 end;
 
 function TSVMClassifier.AugmentedExample(Example: TCustomExample): IMatrix;
@@ -597,6 +628,9 @@ end;
 constructor TSVMClassifier.Create(const props: TSVMProps; w, sv, bias: IMatrix; c1, c2 : integer; scaleMean, scaleFact : IMatrix);
 begin
      inherited Create;
+
+     fConfA := 0;
+     fConfB := 0;
 
      fScaleMean := scaleMean;
      fScaleFact := scaleFact;
@@ -795,6 +829,175 @@ begin
          fScaleFact := obj as TDoubleMatrix
      else
          Result := inherited OnLoadObject(Name, Obj);
+end;
+
+// appendix 5 from probailistic outputs for Support Vector machines and
+// comparison to regularized likelihood methods
+procedure TSVMLearner.SigmoidTraining(cl: TSVMClassifier; var confA, confB: double);
+var prior0, prior1 : integer;
+    svmOut : TDoubleDynArray;
+    target : Array of boolean;
+    counter: Integer;
+    it: Integer;
+    pp : TDoubleDynArray;
+    count : integer;
+    a, b, c, d, e : double;
+    i: Integer;
+    t : double;
+    hiTarget : double;
+    loTarget : double;
+    lambda : double;
+    oldErr : double;
+    d1, d2 : double;
+    oldA, oldB : double;
+    err : double;
+    det : double;
+    p : double;
+    l1 : double;
+    l2 : double;
+    diff : double;
+    scale : double;
+begin
+     // preparation: get original
+     SetLength(target, DataSet.Count);
+     SetLength(svmOut, dataSet.Count);
+     SetLength(pp, dataset.Count);
+     prior0 := 0;
+     prior1 := 0;
+     for counter := 0 to dataset.Count - 1 do
+     begin
+          if dataSet.Example[counter].ClassVal = 1
+          then
+              inc(prior0)
+          else
+              inc(prior1);
+
+          target[counter] := dataset.Example[counter].ClassVal = 1;
+          // note: in the bare case the confidence is the distance to the plane aka svmout
+          cl.Classify(dataset.Example[counter], svmOut[counter]);
+     end;
+
+     for counter := 0 to Length(pp) - 1 do
+         pp[counter] := (prior1 + 1)/(prior0 + prior1 + 2);
+
+     confA := 0;
+     confB := ln((prior0 + 1)/(prior1 + 1));
+     count := 0;
+
+     hiTarget := (prior1 + 1)/(prior1 + 2);
+     loTarget := 1/(prior0 + 2);
+     lambda := 0.001;
+     oldErr := 1e300;
+     t := 0;
+
+
+     for it := 1 to 100 do
+     begin
+          a := 0;
+          b := 0;
+          c := 0;
+          d := 0;
+          e := 0;
+
+          // compute hessian & gradient of error function with respect to confA and confB
+          for i := 0 to dataSet.Count - 1 do
+          begin
+               if target[i]
+               then
+                   t := hiTarget
+               else
+                   t := loTarget;
+
+               d1 := pp[i] - t;
+               d2 := pp[i]*(1 - pp[i]);
+               a := a + sqr(svmOut[i])*d2;
+               b := b + d2;
+               c := c + svmOut[i]*d2;
+               d := d + svmOut[i]*d1;
+               e := e + d1;
+          end;
+
+          // if gradient is really small stop
+          if (abs(d) < 1e-9) and (abs(e) < 1e-9) then
+             break;
+
+          oldA := confA;
+          oldB := confB;
+
+          err := 0;
+          // loop until goodness of fit increases
+          while True do
+          begin
+               det := (a + lambda)*(b + lambda) - sqr(c);
+
+               if SameValue(det, 0) then
+               begin
+                    lambda := lambda*10;
+                    continue;
+               end;
+
+               confA := oldA + ((b + lambda)*d - c*e)/det;
+               confB := oldB + ((a + lambda)*e - c*d)/det;
+
+               // now, compute the goodness of fit
+               err := 0;
+               for i := 0 to dataSet.Count - 1 do
+               begin
+                    p := svmOut[i]*confA + confB;
+
+                    if p > 20
+                    then
+                        p := 0
+                    else if p < -20
+                    then
+                        p := 1
+                    else
+                        p := 1/(1 + exp(p));
+
+                    pp[i] := p;
+
+                    // at this setp make sure log(0) returns - 200
+                    if SameValue(p, 0)
+                    then
+                        l1 := -200
+                    else
+                        l1 := ln(p);
+
+                    if SameValue(p, 1)
+                    then
+                        l2 := -200
+                    else
+                        l2 := ln(1 - p);
+
+                    err := err - t*l1 + (1 - t)*l2;
+               end;
+
+               if err < olderr*(1 + 1e-7) then
+               begin
+                    lambda := lambda*0.1;
+                    break;
+               end;
+
+               // error did not decrease: increase stabilizer by factor of 10 and try again
+               lambda := lambda*10;
+
+               // something went wrong -> give up
+               if lambda > 1e6 then
+                  break;
+          end;
+
+          diff := err - olderr;
+          scale := 0.5*(err - olderr + 1);
+          if (diff > -1e-3 * scale) and (diff < 1e-7 * scale)
+          then
+              inc(count)
+          else
+              count := 0;
+
+          olderr := err;
+          if count = 3 then
+             break;
+     end;
 end;
 
 initialization
