@@ -56,3 +56,11 @@ compatible with Delphi2007 and later versions.
 Developer:
 
 Rabatscher Michael contact via www.mrsoft.org
+
+
+changelog:
+
+Date: 16.03.2017:
+* started change log
+* Added quite a few confidence calculations: svm, lda, neural network, rbf, naive 
+  bayes, kmeans
