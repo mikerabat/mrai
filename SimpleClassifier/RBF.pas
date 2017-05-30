@@ -97,6 +97,7 @@ type
     fclassVals : TIntegerDynArray;
 
     fCenters : TDoubleMatrix;
+    fWeights : TDoubleMatrix;
     fW : TDoubleMatrixDynArr;
     fCenterClassVals : TIntegerDynArray;
 
@@ -107,6 +108,13 @@ type
     procedure RBFCenterMean;
     procedure RBFCenterMedian;
   protected
+    // weighting is achieved by:
+    // -> weighting the output response in case all elements are in the data set
+    // -> perform a weighted mean
+    // -> (nothing on median)
+    // -> perform a "preferred" random sort with some ticketing system
+    //    a high weight will get you a higher number of tickets thus the probability
+    //    to be in the final randomized dataset is higher
     function DoLearn(const weights : Array of double) : TCustomClassifier; override;
   public
     procedure SetProps(const props : TRBFProperties);
@@ -128,7 +136,7 @@ constructor TRBFClassifier.Create(const props: TRBFProperties;
   W: TDoubleMatrixDynArr; Centers: TDoubleMatrix;
   const clVals: TIntegerDynArray; augmentBase : boolean);
 begin
-     fW := W;  
+     fW := W;
      fCenters := Centers;
      fClassVals := clVals;
      fAugmentBase := augmentBase;
@@ -142,7 +150,7 @@ begin
      end;
 
      AlphaFromSigma;
-     
+
      inherited Create;
 end;
 
@@ -195,7 +203,7 @@ procedure TRBFClassifier.AlphaFromSigma;
 begin
      fAlpha := 0;
      fBeta := 0;
-     
+
      if fsigma <> 0 then
      begin
           fAlpha := 1/(sqrt(2*pi)*fsigma);
@@ -222,10 +230,10 @@ begin
      // #### The neuron with the highest output wins:
      maxVal := -MaxDouble;
      maxIdx := 0;
-     
+
      projData := MapToRBFSpace(exmplMtx.GetObjRef);
      projData.TransposeInPlace;
-     
+
      for counter := 0 to Length(fW) - 1 do
      begin
           actVal := fW[counter].Mult(projData);
@@ -236,7 +244,7 @@ begin
                maxVal := actVal[0, 0];
           end;
      end;
-     
+
      Result := fClassVals[maxIdx];
 
      confidence := Max(0, Min(1, maxVal));
@@ -259,24 +267,24 @@ begin
 
      // ###########################################
      // #### Apply kernel on all examples
-     if faugmentBase 
+     if faugmentBase
      then
          Result := TDoubleMatrix.Create(fCenters.Width + 1, Data.Width) // including the bias!
      else
-         Result := TDoubleMatrix.Create(fCenters.Width, Data.Width); 
+         Result := TDoubleMatrix.Create(fCenters.Width, Data.Width);
 
      help := TDoubleMatrix.Create;
-     
+
      // go through examples
      for exmplIdx := 0 to data.Width - 1 do
      begin
           data.SetSubMatrix(exmplIdx, 0, 1, data.Height);
-          
+
           // centers (aka neuron)
           for x := 0 to fCenters.Width - 1 do
           begin
                fCenters.SetSubMatrix(x, 0, 1, fCenters.Height);
-               
+
                Result[x, exmplIdx] := kernelFun(data, help)
           end;
 
@@ -305,10 +313,10 @@ const cClassLabels = 'labels';
       cSigma = 'sigma';
       cEpsilon = 'epsilon';
       cKernel = 'kernel';
-      cCenter = 'centers'; 
+      cCenter = 'centers';
       cWeights = 'weights';
       cAugmentBase = 'augmentbase';
-      
+
 procedure TRBFClassifier.OnLoadBeginList(const Name: String; count: integer);
 begin
      fIdx := -1;
@@ -333,10 +341,10 @@ begin
                fBeta := 1/(2*sqr(fsigma));
           end;
      end
-     else if SameText(Name, cEpsilon) 
+     else if SameText(Name, cEpsilon)
      then
          fEpsilon := Value
-     else 
+     else
          inherited;
 end;
 
@@ -357,24 +365,24 @@ end;
 
 procedure TRBFClassifier.OnLoadIntProperty(const Name: String; Value: integer);
 begin
-     if SameText(Name, cAugmentBase) 
+     if SameText(Name, cAugmentBase)
      then
          fAugmentBase := Value = 1
-     else if SameText(Name, cKernel) 
+     else if SameText(Name, cKernel)
      then
-         fKernelType := TRBFKernel(Value)     
+         fKernelType := TRBFKernel(Value)
      else
          inherited;
 end;
-      
+
 function TRBFClassifier.OnLoadObject(const Name: string;
   obj: TBaseMathPersistence): boolean;
 begin
      Result := True;
-     if SameText(Name, cCenter) 
+     if SameText(Name, cCenter)
      then
          fCenters := obj as TDoubleMatrix
-     else 
+     else
          Result := inherited OnLoadObject(Name, obj);
 end;
 
@@ -436,7 +444,7 @@ end;
 class function TRadialBasisLearner.CanLearnClassifier(
   Classifier: TCustomClassifierClass): boolean;
 begin
-     Result := Classifier = TRBFClassifier;     
+     Result := Classifier = TRBFClassifier;
 end;
 
 destructor TRadialBasisLearner.Destroy;
@@ -444,18 +452,23 @@ begin
      inherited;
 end;
 
-function TRadialBasisLearner.DoLearn(
-  const weights: array of double): TCustomClassifier;
+function TRadialBasisLearner.DoLearn(const weights : Array of double) : TCustomClassifier;
 var phi : IMatrix;
     counter: Integer;
     y : Integer;
     x : Integer;
     yC : TDoubleMatrix;
+    maxWeight : double;
 begin
+     fWeights := TDoubleMatrix.Create;
+     fWeights.Assign( weights, 1, Length(weights));
+     maxWeight := fWeights.Max;
+     fWeights.ScaleInPlace(1/maxWeight);
+
      IndexOfClasses(fclIdx, fclassVals);
 
-     // we need the dataset as matrix -> convert eventual 
-     if DataSet is TMatrixLearnerExampleList 
+     // we need the dataset as matrix -> convert
+     if DataSet is TMatrixLearnerExampleList
      then
          fData := TMatrixLearnerExampleList(DataSet).Matrix
      else
@@ -473,14 +486,14 @@ begin
         // ###########################################
         // #### Calculate centers
         case fProps.centerType of
-          rbAll: RBFCenterAll; 
+          rbAll: RBFCenterAll;
           rbRandom: RBFCenterRandom;
           rbClusterMean: RBFCenterMean;
           rbClusterMedian: RBFCenterMedian;
         end;
 
         // we need a copy since the kernel function uses submatrices on both params
-        if DataSet is TMatrixLearnerExampleList 
+        if DataSet is TMatrixLearnerExampleList
         then
             fData := fCenters.Clone
         else
@@ -494,27 +507,48 @@ begin
         try
            if fProps.RBFlearnAlgorithm = wlLeastSquares then
            begin
-                // calculate a weight matrix for each given class 
+                // calculate a weight matrix for each given class
                 phi := TRBFClassifier(Result).MapToRBFSpace(fData);
-                
+
                 if phi.PseudoInversionInPlace <> srOk then
-                   raise ERBFLearnError.Create('Error could not compute ');
+                   raise ERBFLearnError.Create('Error could not compute phi');
 
                 yC := TDoubleMatrix.Create(1, fCenters.Width);
-                
-                for counter := 0 to Length(fW) - 1 do
-                begin
-                     for y := 0 to fCenters.Width - 1 do
-                     begin
-                          if fCenterClassVals[y] = fclassVals[counter] 
-                          then
-                              yC.Vec[y] := 1
-                          else
-                              yC.Vec[y] := 0;
-                     end;
 
-                     fW[counter] := phi.Mult(yC);
-                     fW[counter].TransposeInPlace;
+                if fProps.centerType = rbAll then
+                begin
+                     // restrict neuron output in case of weighting!
+                     for counter := 0 to Length(fW) - 1 do
+                     begin
+                          for y := 0 to fCenters.Width - 1 do
+                          begin
+                               if fCenterClassVals[y] = fclassVals[counter]
+                               then
+                                   yC.Vec[y] := 1*fweights.Vec[y]
+                               else
+                                   yC.Vec[y] := -1*fweights.Vec[y];
+                          end;
+
+                          fW[counter] := phi.Mult(yC);
+                          fW[counter].TransposeInPlace;
+                     end;
+                end
+                else
+                begin
+                     for counter := 0 to Length(fW) - 1 do
+                     begin
+                          for y := 0 to fCenters.Width - 1 do
+                          begin
+                               if fCenterClassVals[y] = fclassVals[counter]
+                               then
+                                   yC.Vec[y] := 1
+                               else
+                                   yC.Vec[y] := -1;
+                          end;
+
+                          fW[counter] := phi.Mult(yC);
+                          fW[counter].TransposeInPlace;
+                     end;
                 end;
 
                 yC.Free;
@@ -526,13 +560,14 @@ begin
               raise;
         end;
      finally
+            fWeights.Free;
             fData.Free;
      end;
 end;
 
 procedure TRadialBasisLearner.RBFCenterRandom;
 var sortIdx : TIntegerDynArray;
-    counter : integer;
+    counter, i : integer;
     randCnt : integer;
     idx, idx1 : integer;
     itemIdx : integer;
@@ -540,11 +575,58 @@ var sortIdx : TIntegerDynArray;
     numItems : integer;
     mtx : TDoubleMatrix;
     y : integer;
+    buckets : TDoubleDynArray;
+    sumBuckets, bucketVal : double;
+    maxBucketVal : double;
+    doBucketSearch : boolean;
+// returns false if all buckets are the same size
+function InitBuckets(const clIdx : Array of integer) : boolean;
+var weightMax, weightMin : double;
+    sumWeight : double;
+    counter : integer;
+    aWeight : double;
+    sumBucket : double;
+    mult : double;
+begin
+     Result := False;
+
+     weightMax := 0;
+     weightMin := 1;
+     sumWeight := 0;
+     for counter := 0 to High(clIdx) do
+     begin
+          aWeight := fWeights.Vec[clIdx[counter]];
+          sumWeight := sumWeight + aWeight;
+          weightMax := Max(weightMax, aWeight);
+          weightMin := Min(weightMin, aWeight);
+     end;
+     SetLength(buckets, Length(clIdx));
+
+     if SameValue(weightMax, weightMin, 1e-3)
+     then
+         exit
+     else
+         mult := 1/(weightMax - weightMin);
+
+     Result := True;
+     weightMin := weightMin - 1e-3;
+     sumBucket := 0;
+     for counter := 0 to Length(buckets) - 1 do
+     begin
+          buckets[counter] := (fWeights.Vec[clIdx[counter]] - weightMin)*mult;
+          sumBucket := sumBucket + buckets[counter];
+     end;
+
+     // normalize sum to 1
+     mult := 1/sumBucket;
+     for counter := 0 to Length(buckets) - 1 do
+         buckets[counter] := buckets[counter]*mult;
+end;
 begin
      mtx := nil;
 
      if DataSet is TMatrixLearnerExampleList then
-        mtx := TMatrixLearnerExampleList(DataSet).Matrix;    
+        mtx := TMatrixLearnerExampleList(DataSet).Matrix;
 
      numItems := 0;
      for counter := 0 to Length(fclIdx) - 1 do
@@ -552,24 +634,55 @@ begin
 
      fCenters := TDoubleMatrix.Create(numItems, DataSet.Example[0].FeatureVec.FeatureVecLen);
      SetLength(fCenterClassVals, numItems);
-         
+
      itemIdx := 0;
      for counter := 0 to Length(fclIdx) - 1 do
      begin
           // ###########################################
-          // #### randomize the class index list, so we can later on take 
-          // the first randomCenterPerc*Length items out of it.
+          // #### randomize the class index list, so we can take
+          // the first randomCenterPerc*Length items out of it in a later step.
+
+          // take weighting into account and allow the weighting algorithm to
+          // change random probabilities.
           sortIdx := Copy(fclIdx[counter], 0, Length(fclIdx[counter]));
+          doBucketSearch := InitBuckets(sortIdx);
+          maxBucketVal := 1;
 
           for randCnt := Length(sortIdx) - 1 downto 0 do
           begin
-               idx1 := random(randCnt + 1);
+               // search in different size buckets:
+               bucketVal := Dataset.Rand.Random*maxBucketVal;  // -> 0 - 1
+
+               if doBucketSearch then
+               begin
+                    // find bucket idx in which the random value falls
+                    sumBuckets := 0;
+                    idx1 := randCnt;
+                    for i := 0 to randCnt do
+                    begin
+                         sumBuckets := sumBuckets + buckets[i];
+                         if (bucketVal <= sumBuckets) then
+                         begin
+                              // found:
+                              idx1 := i;
+
+                              // update buckets
+                              bucketVal := buckets[i];
+                              buckets[i] := buckets[randCnt];
+                              buckets[randCnt] := bucketVal;
+                              maxBucketVal := maxBucketVal - bucketVal;
+                              break;
+                         end;
+                    end;
+               end
+               else
+                   idx1 := DataSet.Rand.RandInt(randCnt + 1);
 
                tmp := sortIdx[idx1];
                sortIdx[idx1] := sortIdx[randCnt];
                sortIdx[randCnt] := tmp;
           end;
-          
+
           // ###########################################
           // #### Now get the center
           for idx := 0 to Max(1, Round(Length(fclIdx[counter])*fProps.randomCenterPerc)) - 1 do
@@ -580,11 +693,11 @@ begin
                else
                begin
                     for y := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
-                        fCenters[itemIdx, y] := DataSet[ sortIdx[idx] ].FeatureVec[y]; 
+                        fCenters[itemIdx, y] := DataSet[ sortIdx[idx] ].FeatureVec[y];
                end;
 
                fCenterClassVals[itemIdx] := fclassVals[counter];
-               
+
                inc(itemIdx);
           end;
      end;
@@ -616,6 +729,9 @@ procedure TRadialBasisLearner.RBFCenterMean;
 var x, y : integer;
     mtx : TDoubleMatrix;
     clIdx : integer;
+    weightVal : double;
+    vec : TDoubleMatrix;
+    aWeight : double;
 begin
      // take the mean of all elements belonging to one class -> use that as center
      fCenters := TDoubleMatrix.Create(Length(fclassVals), DataSet[0].FeatureVec.FeatureVecLen);
@@ -625,25 +741,37 @@ begin
      if DataSet is TMatrixLearnerExampleList then
         mtx := TMatrixLearnerExampleList(DataSet).Matrix;
 
+
+     vec := TDoubleMatrix.Create(1, fCenters.Height);
      for x := 0 to fCenters.Width - 1 do
      begin
           fCenters.SetSubMatrix(x, 0, 1, fCenters.Height);
+          weightVal := 0;
+
           for clIdx := 0 to Length(fclIdx[x]) - 1 do
           begin
+               aWeight := fWeights.Vec[fClIdx[x][clIdx]];
                if Assigned(mtx) then
                begin
                     mtx.SetSubMatrix( fClIdx[x][clIdx], 0, 1, mtx.Height );
-                    fCenters.AddInplace(mtx);
+
+                    vec.SetColumn(0, mtx, fClIdx[x][clIdx]);
+                    vec.ScaleInPlace( aWeight );
+                    fCenters.AddInplace(vec);
                end
                else
                begin
                     for y := 0 to fCenters.Height - 1 do
-                        fCenters[0, y] := fCenters[0, y] + DataSet[x].FeatureVec[y];
+                        vec.Vec[y] := aWeight*DataSet[x].FeatureVec[y];
+
+                    fCenters.AddInplace(vec);
                end;
+
+               weightVal := weightVal + aWeight;
           end;
 
           fCenterClassVals[x] := fclassVals[x];
-          fCenters.ScaleInPlace(1/Length(fClIdx[x]));
+          fCenters.ScaleInPlace(1/weightVal);
      end;
 
      mtx.UseFullMatrix;
@@ -665,15 +793,15 @@ begin
      for clIdx := 0 to Length(fclIdx) - 1 do
      begin
           numExmpl := Length(fclIdx[clIdx]);
-          SetLength(col, Length(fclIdx[clIdx]));  
-          
+          SetLength(col, Length(fclIdx[clIdx]));
+
           for y := 0 to featureLen - 1 do
           begin
                // extract the features for the selected class and the selected feature index
                for x := 0 to Length(fclIdx[clIdx]) - 1 do
                    col[x] := DataSet[fclIdx[clIdx][x]].FeatureVec[y];
 
-               if numExmpl and 1 = 0 
+               if numExmpl and 1 = 0
                then
                    fCenters[clIdx, y] := (KthLargest(col, numExmpl div 2) + KthLargest(col, numExmpl div 2 + 1))/2
                else

@@ -2,7 +2,7 @@ object frmClassifierTest: TfrmClassifierTest
   Left = 0
   Top = 0
   Caption = 'Classification Test'
-  ClientHeight = 593
+  ClientHeight = 641
   ClientWidth = 822
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -15,21 +15,20 @@ object frmClassifierTest: TfrmClassifierTest
   OnDestroy = FormDestroy
   DesignSize = (
     822
-    593)
+    641)
   PixelsPerInch = 96
   TextHeight = 16
   object PaintBox1: TPaintBox
     Left = 9
-    Top = 152
+    Top = 172
     Width = 492
-    Height = 433
+    Height = 481
     Anchors = [akLeft, akTop, akRight, akBottom]
     OnPaint = PaintBox1Paint
-    ExplicitWidth = 501
   end
   object Label1: TLabel
     Left = 127
-    Top = 119
+    Top = 148
     Width = 144
     Height = 16
     Caption = 'Classifiers Learning Error'
@@ -42,7 +41,7 @@ object frmClassifierTest: TfrmClassifierTest
   end
   object lblLearnError: TLabel
     Left = 284
-    Top = 119
+    Top = 148
     Width = 8
     Height = 16
     Caption = '0'
@@ -57,7 +56,7 @@ object frmClassifierTest: TfrmClassifierTest
     Left = 8
     Top = 0
     Width = 806
-    Height = 113
+    Height = 142
     Anchors = [akLeft, akTop, akRight]
     Caption = 'Simple Tests'
     TabOrder = 0
@@ -172,12 +171,21 @@ object frmClassifierTest: TfrmClassifierTest
       TabOrder = 10
       OnClick = butLDAClick
     end
+    object chkWeights: TCheckBox
+      Left = 15
+      Top = 122
+      Width = 122
+      Height = 17
+      Hint = 'Testing the weighted learner routines or the generic weighting'
+      Caption = 'Random Weights'
+      TabOrder = 11
+    end
   end
   object grpFaces: TGroupBox
     Left = 507
-    Top = 119
+    Top = 172
     Width = 307
-    Height = 466
+    Height = 461
     Anchors = [akTop, akRight, akBottom]
     Caption = 'Image Classifiers'
     TabOrder = 1
@@ -373,7 +381,7 @@ object frmClassifierTest: TfrmClassifierTest
   end
   object chkConfidence: TCheckBox
     Left = 8
-    Top = 120
+    Top = 149
     Width = 112
     Height = 17
     Caption = 'Confidence Map'

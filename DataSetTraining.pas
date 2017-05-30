@@ -87,6 +87,10 @@ var i, j, trainIdx : integer;
     classVal : integer;
     conf : double;
 begin
+     // ##############################################
+     // #### The final classifier will be from the complete set
+     // but the meantrain and classify errors are built from the
+     // leave one out algorithm
      MeanTrainError := 0;
      MeanClassifyError := 0;
      SetLength(TrainErrors, fDataSet.Count);
@@ -153,7 +157,7 @@ begin
      // #### Finally create a classifier from the whole list
      learner := fLearner.Create;
      try
-        learner.Init(trainList);
+        learner.Init(fDataSet);
         Result := learner.Learn(Weights);
      finally
             learner.Free;

@@ -108,6 +108,7 @@ type
     procedure LearnLagrangian(y : IMatrix); // this algorithm is not very good... (numerically instable + very bad results)
     procedure LearnLeastSquares(y : IMatrix);
   protected
+    // todo: add support for weighted learning
     function DoLearn(const weights : Array of double) : TCustomClassifier; override;
   public
     procedure AfterConstruction; override;
@@ -174,7 +175,7 @@ begin
      Result := Classifier = TSVMClassifier;
 end;
 
-function TSVMLearner.DoLearn(const weights: array of double): TCustomClassifier;
+function TSVMLearner.DoLearn(const weights : Array of double): TCustomClassifier;
 var augExmpl : IMatrix;
     y : IMatrix;
     idx : TIntIntArray;

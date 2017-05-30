@@ -53,7 +53,7 @@ implementation
 type
   T1DHaarExample = class(TCustomLearnerExample)
   public
-    function Clone(OnlyReference : boolean) : T1DHaarExample;
+    function CloneHaar(OnlyReference : boolean) : T1DHaarExample;
   end;
 
 { T1DHaarExampleCreator }
@@ -121,7 +121,7 @@ begin
      Result := TCustomLearnerExampleList.Create;
 
      for i := 0 to fExampleList.Count - 1 do
-         Result.Add(T1DHaarExample(fExampleList[i]).Clone(OnlyReference));
+         Result.Add(T1DHaarExample(fExampleList[i]).CloneHaar(OnlyReference));
 end;
 
 constructor T1DHaarExampleCreator.Create;
@@ -142,7 +142,8 @@ end;
 
 { T1DHaarExample }
 
-function T1DHaarExample.Clone(OnlyReference: boolean): T1DHaarExample;
+
+function T1DHaarExample.CloneHaar(OnlyReference: boolean): T1DHaarExample;
 var fVec : T1DHaarFeatureVec;
     features : Array of double;
     haarType : Array of T1DHaarType;

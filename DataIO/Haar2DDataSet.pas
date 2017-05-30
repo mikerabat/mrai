@@ -31,6 +31,8 @@ type
     procedure AddIntImg(img : TIntegralImage);
     procedure AddExample(list : THaar2DFeatureList; classVal : integer);
 
+    function CloneBase : TCustomLearnerExampleList; override;
+
     constructor Create;
     destructor Destroy; override;
   end;
@@ -346,6 +348,13 @@ begin
      fIntImages.Free;
 
      inherited;
+end;
+
+function THaar2DLearnerList.CloneBase: TCustomLearnerExampleList;
+begin
+     Result := inherited CloneBase;
+     THaar2DLearnerList(Result).fIntImages.OwnsObjects := False;
+     THaar2DLearnerList(Result).fIntImages.Assign(fIntImages);  // just copy references
 end;
 
 end.

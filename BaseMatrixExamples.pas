@@ -65,6 +65,9 @@ type
     fOwnsMatrix : boolean;
   public
     property Matrix : TDoubleMatrix read fMatrix;
+
+    function CloneBase : TCustomLearnerExampleList; override;
+
     constructor Create(AItemList : TDoubleMatrix; ClassVals : Array of Integer; ownsMatrix : boolean = True);
     destructor Destroy; override;
   end;
@@ -142,6 +145,13 @@ begin
         fMatrix.Free;
         
      inherited;
+end;
+
+function TMatrixLearnerExampleList.CloneBase: TCustomLearnerExampleList;
+begin
+     Result := inherited CloneBase;
+     TMatrixLearnerExampleList(Result).fMatrix := Matrix;
+     TMatrixLearnerExampleList(Result).fOwnsMatrix := False;
 end;
 
 { TMatrixLearnerExample }

@@ -76,6 +76,7 @@ end;
 
 destructor TTreeNode.Destroy;
 begin
+     // in the final tree state we own the "tree" so free the items
      fLeftItem.Free;
      fRightItem.Free;
 
@@ -84,6 +85,7 @@ end;
 
 procedure TTreeNode.SetLeftItem(item: TCustomTreeItem);
 begin
+     // for external operations -> do not free the items
      fLeftItem := item;
      item.fParent := self;
 end;

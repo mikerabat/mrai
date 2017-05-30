@@ -50,7 +50,7 @@ type
 // Phd: Incremental, Robust, and Efficient Linear Discriminant Analysis Learning, page 33
 // Augmented subspace learning without any vector reduction
 type
-  TFisherBatchLDALearner = class(TCustomWeightedLearner)
+  TFisherBatchLDALearner = class(TCustomLearner)
   protected
     fProps : TFisherAugmentedBaseProps;
     fPCA : TMatrixPCA;
@@ -59,7 +59,7 @@ type
     function PCAAndProject(data : TDoubleMatrix; var U : TDoubleMatrix; var mu : TDoubleMatrix; var A : TDoubleMatrix; var eigVals : TDoubleMatrix) : boolean;
     procedure CreateBaseLDAClassifier(var pcaU, pcaMu, eigVals, ldaV : TDoubleMatrix; var classCenters : TDoubleMatrixDynArr;
                                       const classLabels : TIntegerDynArray; const classIdx : TIntIntArray; numClasses : Integer);
-    function DoLearn(const weights : Array of double) : TCustomClassifier; override;
+    function DoUnweightedLearn : TCustomClassifier; override;
   public
     procedure SetProperties(const props : TFisherAugmentedBaseProps);
 
@@ -275,8 +275,7 @@ begin
      inherited;
 end;
 
-function TFisherBatchLDALearner.DoLearn(
-  const weights: array of double): TCustomClassifier;
+function TFisherBatchLDALearner.DoUnweightedLearn : TCustomClassifier;
 var pcaU, pcaMu, ldaV, eigVals: TDoubleMatrix;
     classCenters: TDoubleMatrixDynArr;
     numClasses : integer;
@@ -361,9 +360,10 @@ function TFisherBatchLDALearner.ExtractMatrixData(
   var ownsMatrix: boolean): TDoubleMatrix;
 var x, y : integer;
 begin
-     if DataSet is TMatrixLearnerExampleList then
+     if ( DataSet is TMatrixLearnerExampleList ) and ( TMatrixLearnerExampleList(DataSet).Matrix.Width = DataSet.Count) then
      begin
           Result := TMatrixLearnerExampleList(DataSet).Matrix;
+          ownsMatrix := False;
      end
      else
      begin
@@ -372,9 +372,9 @@ begin
           for y := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
               for x := 0 to DataSet.Count - 1 do
                   Result[x, y] := DataSet[x].FeatureVec[y];
-     end;
 
-     ownsMatrix := not (DataSet is TMatrixLearnerExampleList);
+          ownsMatrix := True;
+     end;
 end;
 
 function TFisherBatchLDALearner.PCAAndProject(data: TDoubleMatrix; var U, mu,

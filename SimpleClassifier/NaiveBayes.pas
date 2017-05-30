@@ -127,6 +127,10 @@ var numClasses : integer;
     distrCnt : Array of TDoubleDynArray;
     histoDiff : double;
     maxHistVal : double;
+    leftRightIdx : integer;
+    startVal : double;
+    numZeroBins : integer;
+    histMax : double;
 begin
      numClasses := DataSet.NumClasses(cl);
 
@@ -182,6 +186,52 @@ begin
           end;
      end;
 
+     // handle zero bins -> for each feature use a exp2 decay (divide by 2)
+     // (it's simply very easiest to do) from the last filled bin to the left and right side
+     // todo: find a better way
+     for clCnt := 0 to numClasses - 1 do
+     begin
+          for featureIdx := 0 to DataSet.Example[0].FeatureVec.FeatureVecLen - 1 do
+          begin
+               // find first element <> 0 from the left
+               leftRightIdx := 0;
+               while (leftRightIdx < fProps.NumBins - 1) and (distr[clCnt][featureIdx*fProps.NumBins + leftRightIdx] = 0) do
+                     inc(leftRightIdx);
+
+               histMax := 0;
+               for histIdx := 0 to fProps.NumBins - 1 do
+                   histMax := max(histMax, distr[clCnt][featureIdx*fProps.NumBins + histIdx]);
+
+               if (leftRightIdx > 0) and (distr[clCnt][featureIdx*fProps.NumBins + leftRightIdx] > 0) then
+               begin
+                    numZeroBins := leftRightIdx;
+                    startVal := distr[clCnt][featureIdx*fProps.NumBins + leftRightIdx]/2;
+                    for histIdx := leftRightIdx - 1 downto 0 do
+                    begin
+                         distr[clCnt][featureIdx*fProps.NumBins + histIdx] := (histIdx/numZeroBins)*startVal;
+                         if startVal > histMax*1e-9 then
+                            startVal := StartVal/2;
+                    end;
+               end;
+
+               // same on the right side
+               leftRightIdx := fProps.NumBins - 1;
+               while (leftRightIdx > 0) and (distr[clCnt][featureIdx*fProps.NumBins + leftRightIdx] = 0) do
+                     dec(leftRightIdx);
+
+               if (leftRightIdx < fProps.numBins - 1) and (distr[clCnt][featureIdx*fProps.NumBins + leftRightIdx] > 0) then
+               begin
+                    numZeroBins := fProps.NumBins - leftRightIdx;
+                    startVal := distr[clCnt][featureIdx*fProps.NumBins + leftRightIdx]/2;
+                    for histIdx := leftRightIdx + 1 to fProps.NumBins - 1 do
+                    begin
+                         distr[clCnt][featureIdx*fProps.NumBins + histIdx] := (fProps.NumBins - histIdx)/numZeroBins*startVal;
+                         if startVal > histMax*1e-9 then
+                            startVal := startVal/2;
+                    end;
+               end;
+          end;
+     end;
 
      // #############################################################
      // #### Create the classifier
@@ -207,6 +257,7 @@ var clCnt: Integer;
     histoIdx : integer;
     histoDiff : double;
     maxHistVal : double;
+    sumProb : double;
 begin
      confidence := 0;
 
@@ -234,14 +285,20 @@ begin
      confidence := prob[0];
      Result := fClVals[0];
 
+     sumProb := confidence;
      for clCnt := 1 to Length(fClVals) - 1 do
      begin
+          sumProb := sumProb + prob[clCnt];
           if confidence < prob[clCnt] then
           begin
                Result := fClVals[clCnt];
                confidence := prob[clCnt];
           end;
      end;
+
+     // laymans confidence calculation: class probability divided by the sum of all calculated probabilities
+     if sumProb > 0 then
+        confidence := confidence/sumProb;
 end;
 
 constructor TNaiveBayes.Create(const props: TNaiveBayesProps;

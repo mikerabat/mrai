@@ -61,8 +61,11 @@ type
   private
     fClassVal : integer;
   public
+    function Clone : TCustomLearnerExample; virtual;
+
     property ClassVal : integer read fClassVal write fClassVal;
   end;
+  TCustomLearnerExampleClass = class of TCustomLearnerExample;
 
 // #############################################################
 // #### List of examples - used in the training phase
@@ -85,7 +88,6 @@ type
     fRandom : TRandomGenerator;
 
     function InternalRandomDataSet(LearningSet : TCustomLearnerExampleList; StartIdx, EndIdx : integer; numElements : integer) : TCustomLearnerExampleList;
-    function Rand : TRandomGenerator;
     procedure SetRandomAlg(const Value: TRandomAlgorithm);
 
     function GetExample(index : integer) : TCustomLearnerExample; virtual;
@@ -96,7 +98,11 @@ type
     function CreateRandomDataSet(Percentage : integer) : TCustomLearnerExampleList;
     function CreateRandomizedBalancedDataSet(Percentage : integer) : TCustomLearnerExampleList;
 
+    // clone without examples
+    function CloneBase : TCustomLearnerExampleList; virtual;
+
     procedure Shuffle;  // randomizes all the examples
+    function Rand : TRandomGenerator;
 
     property Example[index : integer] : TCustomLearnerExample read GetExample write SetExample; default;
     procedure Add(Exmpl : TCustomLearnerExample);
@@ -107,6 +113,7 @@ type
     constructor Create;
     destructor Destroy; override;
   end;
+  TCustomLearnerExampleListClass = class of TCustomLearnerExampleList;
 
 // #############################################################
 // #### Base classifier class
@@ -139,7 +146,7 @@ type
 type
   TCustomWeightedLearner = class(TCommonLearnerProps)
   private
-    fDataSet : TCustomLearnerExampleList;
+    fDataSet : TCustomLearnerExampleList; // by reference
   protected
     property DataSet : TCustomLearnerExampleList read fDataSet;
     function DoLearn(const weights : Array of double) : TCustomClassifier; virtual; abstract;
@@ -163,11 +170,22 @@ type
 // #### Base classifier which cannot handle weigthing in the example list
 type
   TCustomLearner = class(TCustomWeightedLearner)
+  private
+    fOrigDataSet : TCustomLearnerExampleList;
+
+    // creates a new example list and adds already existing examples from the given list:
+    // weighting is achieved by duplicating
+    // items. e.g. if count=3 and weights are 0.66, 0.17, 0.17, then the
+    // result is count=5, example[0] x 3, example[1] x 1, example[2] x 1
+    // algorithm is:
+    // take max weigth and divide by 100: -> use that as minimum allowed weight and
+    // discard all examples lower than that weight.
+    // take the remaining lowest weight -> this example is put one time into the resulting
+    // array.
+    procedure BuildWeightedList(const weights : Array of double);
   protected
     function DoUnweightedLearn : TCustomClassifier; virtual; abstract;
     function DoLearn(const weights : Array of double) : TCustomClassifier; override;
-  public
-
   end;
   TCustomLearnerClass = class of TCustomLearner;
 
@@ -522,6 +540,12 @@ begin
      end;
 end;
 
+function TCustomLearnerExampleList.CloneBase: TCustomLearnerExampleList;
+begin
+     Result := TCustomLearnerExampleListClass(Self.ClassType).Create;
+     Result.fRandomAlg := fRandomAlg;
+end;
+
 { TCustomWeightedLearner }
 
 procedure TCustomWeightedLearner.IdxQuickSort(const Values : TDoubleDynArray; var Idx : TIntegerDynArray; L, R : integer);
@@ -729,7 +753,73 @@ end;
 function TCustomLearner.DoLearn(
   const weights: array of double): TCustomClassifier;
 begin
-     Result := DoUnweightedLearn;
+     // build a new list and use it like the original one
+     BuildWeightedList(weights);
+     try
+        Result := DoUnweightedLearn;
+     finally
+            // cleanup the intermediate dataset
+            if Assigned(fOrigDataSet) then
+            begin
+                 fDataSet.Free;
+                 fDataSet := fOrigDataSet;
+                 fOrigDataSet := nil;
+            end;
+     end;
+end;
+
+procedure TCustomLearner.BuildWeightedList(const weights: array of double);
+var maxWeight : double;
+    counter: Integer;
+    minAllowedWeight : double;
+    minWeight : double;
+    numExmpl : integer;
+    i : integer;
+    exmpl : TCustomLearnerExample;
+begin
+     // search for the maximum:
+     if length(weights) = 0 then
+        exit;
+
+     maxWeight := weights[0];
+     for counter := 1 to Length(weights) - 1 do
+         maxWeight := max(maxWeight, weights[counter]);
+
+     minAllowedWeight := maxWeight/100;
+     // find minimum
+     minWeight := maxWeight;
+     for counter := 0 to Length(weights) - 1 do
+     begin
+          if (weights[counter] < minWeight) and (weights[counter] >= minAllowedWeight) then
+             minWeight := weights[counter];
+     end;
+
+     // check if evenly distributed - if so do nothing
+     if minWeight = maxWeight then
+        exit;
+
+     fOrigDataSet := fDataSet;
+     fDataSet := fOrigDataSet.CloneBase;
+     fDataSet.fRandomAlg := fOrigDataSet.fRandomAlg;
+
+     // build resulting example list and multiple add the examples according to the weighting
+     for counter := 0 to Length(weights) - 1 do
+     begin
+          // remove all examples lower than the given weight
+          if weights[counter] < minWeight
+          then
+              continue
+          else
+          begin
+               numExmpl := ceil(weights[counter]/minWeight);
+               // clone and add examples
+               for i := 0 to numExmpl - 1 do
+               begin
+                    exmpl := TCustomLearnerExample(fOrigDataSet.GetExample(counter).Clone);
+                    fDataSet.Add(exmpl);
+               end;
+          end;
+     end;
 end;
 
 { TCustomExample }
@@ -754,6 +844,14 @@ function TCustomClassifier.Classify(Example: TCustomExample): integer;
 var conf : double;
 begin
      Result := Classify(Example, conf);
+end;
+
+{ TCustomLearnerExample }
+
+function TCustomLearnerExample.Clone: TCustomLearnerExample;
+begin
+     Result := TCustomLearnerExampleClass(self.ClassType).Create(fFeatureVec, False);
+     Result.fClassVal := fClassVal;
 end;
 
 end.

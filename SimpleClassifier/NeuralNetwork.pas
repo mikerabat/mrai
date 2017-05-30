@@ -88,10 +88,12 @@ type
   end;
   TNeuralLayerRecArr = Array of TNeuralLayerRec;
   TNeuralMinMax = packed Array[0..1] of double; //0..min, 1..max
+  TNeuralMinMaxArr = Array of TNeuralMinMax;
   TFeedForwardNeuralNet = class(TBaseMathPersistence)
   private
     fLayer : Array of TNeuralLayer;
-    fInputMinMax : TNeuralMinMax;
+    fInputMinMax : TNeuralMinMaxArr;
+    fInputMeanVar : TNeuralMinMaxArr;
     fOutputMinMax : TNeuralMinMax;
 
     fLoadIdx : integer;
@@ -106,7 +108,7 @@ type
     procedure OnLoadEndList; override;
     procedure OnLoadBinaryProperty(const Name : String; const Value; size : integer); override;
 
-    constructor Create(NumInputs : integer; const layers : TNeuralLayerRecArr; const InputMinMax : TNeuralMinMax);
+    constructor Create(NumInputs : integer; const layers : TNeuralLayerRecArr; const InputMinMax, InputMeanVar : TNeuralMinMaxArr);
     destructor Destroy; override;
   end;
 
@@ -126,6 +128,7 @@ type
     validationDataSetSize : double; // percentage (0-1) to be used as validation data set. if set to 0 the training
                                     // set is used for validation.
     numMinDeltaErr : integer;    // number of batch iterations that needs to be lower than stopOnMinDeltaErr
+    normMeanVar : boolean;       // the input is normaized to (x - mean_i)/var_i  where mean_i is the mean of that feature and var_i is it's variance
   end;
 
 // ###########################################
@@ -163,7 +166,8 @@ type
     foutputExpAct : TDoubleDynArray;
     fMaxNumNeurons : integer;
 
-    function DataSetMinMax : TNeuralMinMax;
+    function DataSetMinMax : TNeuralMinMaxArr;
+    function DataSetMeanVar : TNeuralMinMaxArr;
     procedure UpdateWeights(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
     procedure UpdateWeightsByLearnRate(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
     procedure UpdateWeightsMomentum(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
@@ -178,7 +182,7 @@ type
 
 implementation
 
-uses Math, SysUtils;
+uses Math, SysUtils, BaseMatrixExamples, Matrix;
 
 // ################################################
 // ##### persistence
@@ -189,6 +193,7 @@ const cClassLabels = 'labels';
       cNetLayers = 'layers';
       cInputMinMax = 'inputMinMax';
       cOutputMinMax = 'outputMinMax';
+      cInputMeanVar = 'inputMeanVar';
 
       cNeuronType = 'neuronType';
       cNeuronList = 'neurons';
@@ -297,16 +302,19 @@ end;
 constructor TNeuralLayer.Create(NumInputs, NumNeurons: integer;
   NeuronType: TNeuronType);
 var i : integer;
+    mult : double;
 begin
      inherited Create;
 
      fType := NeuronType;
      SetLength(fNeurons, NumNeurons);
 
+     mult := 1/sqrt(NumInputs);
+
      for i := 0 to Length(fNeurons) - 1 do
      begin
           fNeurons[i] := TNeuron.Create(NumInputs, NeuronType);
-          fNeurons[i].RandomInit(-1, 1);
+          fNeurons[i].RandomInit(-1*mult, 1*mult);
      end;
 end;
 
@@ -397,9 +405,20 @@ end;
 { TFeedForwardNeuralNet }
 
 constructor TFeedForwardNeuralNet.Create(NumInputs: integer;
-  const layers: TNeuralLayerRecArr; const InputMinMax : TNeuralMinMax);
+  const layers: TNeuralLayerRecArr; const InputMinMax, InputMeanVar : TNeuralMinMaxArr);
 var i : integer;
     lastNumInputs : integer;
+    minVal, maxVal : double;
+procedure SetBetaAndThreshFirstLayer(aBeta : double; layer : TNeuralLayer);
+var counter : integer;
+begin
+     for counter := 0 to Length(layer.fNeurons) - 1 do
+     begin
+          layer.fNeurons[counter].fWeights[0] := 0; //InputMinMax[counter][0] + InputMinMax[counter][1])/2;
+          layer.fNeurons[counter].fBeta := aBeta;
+     end;
+end;
+
 procedure SetBetaAndThresh(aBeta, aThresh : double; layer : TNeuralLayer);
 var counter : integer;
 begin
@@ -413,6 +432,7 @@ begin
      SetLength(fLayer, Length(layers));
 
      fInputMinMax := InputMinMax;
+     fInputMeanVar := InputMeanVar;
 
      fOutputMinMax[1] := 1;
      case layers[High(layers)].NeuronType of
@@ -428,27 +448,29 @@ begin
           lastNumInputs := layers[i].NumNeurons;
      end;
 
+     minVal := MaxDouble;
+     maxVal := -MaxDouble;
+     for i := 0 to Length(fInputMinMax) - 1 do
+     begin
+          minVal := Min(minVal, fInputMinMax[i][0]);
+          maxVal := Max(maxVal, fInputMinMax[i][1])
+     end;
+
      // adjust the input activation by the min max values and according to the input neuron type
      case fLayer[0].fType of
-       ntLinear:  SetBetaAndThresh( 1, (fInputMinMax[0] + fInputMinMax[1])/2, fLayer[0]);
-       ntExpSigmoid: SetBetaAndThresh(10/(fInputMinMax[1] - fInputMinMax[0]), (fInputMinMax[0] + fInputMinMax[1])/2, fLayer[0]);
-       ntTanSigmoid: SetBetaAndThresh(2*pi/(fInputMinMax[1] - fInputMinMax[0]), (fInputMinMax[0] + fInputMinMax[1])/2, fLayer[0]);
+       ntLinear:  SetBetaAndThreshFirstLayer( 1, fLayer[0]);
+       ntExpSigmoid: SetBetaAndThreshFirstLayer(10/(maxVal - minVal), fLayer[0]);
+       ntTanSigmoid: SetBetaAndThreshFirstLayer(2*pi/(maxVal - minVal), fLayer[0]);
      end;
 
      for i := 1 to Length(fLayer) - 1 do
      begin
-          if fLayer[i].fType = ntLinear then
-          begin
-               if fLayer[i - 1].fType = ntExpSigmoid then
-                  SetBetaAndThresh(1, 0.5, fLayer[i]);
-          end
-          else if fLayer[i].fType = ntTanSigmoid then
-          begin
-               if fLayer[i].fType = ntExpSigmoid then
-                  SetBetaAndThresh(1, 0.5, fLayer[i]);
-          end;
+          if fLayer[i - 1].fType <> ntExpSigmoid
+          then
+              SetBetaAndThresh(1, 0, fLayer[i])
+          else
+              SetBetaAndThresh(1, 0.5, fLayer[i]);
      end;
-
 end;
 
 destructor TFeedForwardNeuralNet.Destroy;
@@ -466,6 +488,10 @@ begin
      SetLength(Result, Length(input));
      Result := Input;
 
+     // normalize by mean and var
+     for i := 0 to Length(input) - 1 do
+         Result[i] := (Result[i] - fInputMeanVar[i][0])/fInputMeanVar[i][1];
+
      for i := 0 to Length(fLayer) - 1 do
          Result := fLayer[i].Feed(Result);
 end;
@@ -480,8 +506,9 @@ begin
          AddObject(fLayer[counter]);
      EndList;
 
-     AddBinaryProperty(cInputMinMax, fInputMinMax, sizeof(fInputMinMax));
+     AddBinaryProperty(cInputMinMax, fInputMinMax, sizeof(TNeuralMinMax)*Length(fInputMinMax));
      AddBinaryProperty(cOutputMinMax, fOutputMinMax, sizeof(fOutputMinMax));
+     AddBinaryProperty(cInputMeanVar, fInputMeanVar, sizeof(TNeuralMinMax)*Length(fInputMeanVar));
 end;
 
 function TFeedForwardNeuralNet.PropTypeOfName(const Name: string): TPropType;
@@ -489,7 +516,7 @@ begin
      if CompareText(Name, cNetLayers) = 0
      then
          Result := ptObject
-     else if (CompareText(Name, cInputMinMax) = 0) or (CompareText(Name, cOutputMinMax) = 0)
+     else if (CompareText(Name, cInputMinMax) = 0) or (CompareText(Name, cOutputMinMax) = 0) or (CompareText(Name, cInputMeanVar) = 0)
      then
          Result := ptBinary
      else
@@ -502,15 +529,21 @@ procedure TFeedForwardNeuralNet.OnLoadBinaryProperty(const Name: String;
 begin
      if SameText(Name, cInputMinMax) then
      begin
-          assert(Size = sizeof(fInputMinMax), 'Error persistent size of Input Min Max differs');
-          Move(Value, fInputMinMax, Size);
+          assert(Size mod sizeof(TNeuralMinMax) = 0, 'Error persistent size of Input Min Max differs');
+          SetLength(fInputMinMax, Size div sizeof(TNeuralMinMax));
+          Move(Value, fInputMinMax[0], Size);
      end
      else if SameText(Name, cOutputMinMax) then
      begin
           assert(Size = sizeof(fInputMinMax), 'Error persistent size of Input Min Max differs');
           Move(Value, fOutputMinMax, Size);
      end
-     else
+     else if SameText(Name, cInputMeanVar) then
+     begin
+          assert(Size mod sizeof(TNeuralMinMax) = 0, 'Error persistent size of Input Min Max differs');
+          SetLength(fInputMeanVar, Size div sizeof(TNeuralMinMax));
+          Move(Value, fInputMeanVar[0], Size);
+     end;
          inherited;
 end;
 
@@ -600,6 +633,10 @@ begin
           for counter := 0 to fNumFeatures - 1 do
               fOk[0][counter] := randSet[exmplCnt].FeatureVec[counter];
 
+          // first layer -> normalize input by mean var of the complete input
+          for counter := 0 to fnumFeatures - 1 do
+              fOk[0][counter] := (fOk[0][counter] - net.fInputMeanVar[counter][0])/net.fInputMeanVar[counter][1];
+
           // calculate activation (o_k) for all layers
           for layerCnt := 0 to Length(net.fLayer) - 1 do
               fOk[layerCnt + 1] := net.fLayer[layerCnt].Feed(fOk[layerCnt]);
@@ -651,7 +688,7 @@ var net : TFeedForwardNeuralNet;
     lastErr, curErr : double;
     numSmallErrChange : integer;
     errCnt : integer;
-    inputMinMax : TNeuralMinMax;
+    inputMinMax, inputMeanVar : TNeuralMinMaxArr;
     randSet : TCustomLearnerExampleList;
     validationSet : TCustomLearnerExampleList;
 begin
@@ -669,11 +706,21 @@ begin
      layers[Length(layers) - 1].NumNeurons := fnumCl;
 
      inputMinMax := DataSetMinMax;
+     inputMeanVar := DataSetMeanVar;
+
+     if not fProps.normMeanVar then
+     begin
+          for counter := 0 to Length(inputMeanVar) - 1 do
+          begin
+               inputMeanVar[counter][0] := 0;
+               inputMeanVar[counter][1] := 1;
+          end;
+     end;
 
      if Length(fProps.layers) > 0 then
         Move(fProps.layers[0], layers[0], Length(fProps.layers)*sizeof(fProps.layers[0]));
 
-     net := TFeedForwardNeuralNet.Create(fnumFeatures, layers, inputMinMax);
+     net := TFeedForwardNeuralNet.Create(fnumFeatures, layers, inputMinMax, inputMeanVar);
 
      lastErr := 1;
      numSmallErrChange := 0;
@@ -739,19 +786,24 @@ begin
      fProps := Props;
 end;
 
-function TNeuralNetLearner.DataSetMinMax: TNeuralMinMax;
+function TNeuralNetLearner.DataSetMinMax: TNeuralMinMaxArr;
 var counter : integer;
     featureCnt : integer;
 begin
-     Result[0] := DataSet[0].FeatureVec[0];
-     Result[1] := DataSet[0].FeatureVec[0];
+     SetLength(Result, DataSet[0].FeatureVec.FeatureVecLen);
 
-     for counter := 0 to DataSet.Count - 1 do
+     for featureCnt := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
+     begin
+          Result[0][0] := DataSet[0].FeatureVec[0];
+          Result[0][1] := DataSet[0].FeatureVec[0];
+     end;
+
+     for counter := 1 to DataSet.Count - 1 do
      begin
           for featureCnt := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
           begin
-               Result[0] := Min(Result[0], DataSet[counter].FeatureVec[featureCnt]);
-               Result[1] := Max(Result[1], DataSet[counter].FeatureVec[featureCnt]);
+               Result[featureCnt][0] := Min(Result[featureCnt][0], DataSet[counter].FeatureVec[featureCnt]);
+               Result[featureCnt][1] := Max(Result[featureCnt][1], DataSet[counter].FeatureVec[featureCnt]);
           end;
      end;
 end;
@@ -793,12 +845,46 @@ begin
 end;
 
 
+function TNeuralNetLearner.DataSetMeanVar: TNeuralMinMaxArr;
+var counter : integer;
+    featureCnt : integer;
+    data : TDoubleDynArray;
+    aMean, aVar : Extended;
+    aMeanVarMtx : IMatrix;
+begin
+     SetLength(Result, DataSet[0].FeatureVec.FeatureVecLen);
+     SetLength(data, DataSet.Count);
+
+     if DataSet is TMatrixLearnerExampleList then
+     begin
+          aMeanVarMtx := (DataSet as TMatrixLearnerExampleList).Matrix.MeanVariance(True);
+
+          for featureCnt := 0 to aMeanVarMtx.Height - 1 do
+          begin
+               Result[featureCnt][0] := aMeanVarMtx[0, featureCnt];
+               Result[featureCnt][1] := sqrt( aMeanVarMtx[1, featureCnt] );
+          end;
+     end
+     else
+     begin
+          SetLength(data, DataSet.Count);
+          for featureCnt := 0 to Length(Result) - 1 do
+          begin
+               for counter := 0 to DataSet.Count - 1 do
+                   data[counter] := DataSet[counter].FeatureVec[featureCnt];
+
+               MeanAndStdDev(data, aMean, aVar);
+               Result[featureCnt][0] := aMean;
+               Result[featureCnt][1] := aVar;
+          end;
+     end;
+end;
+
 { TNeuralNet }
 
 function TNeuralNet.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var ok : TDoubleDynArray;
-    layerCnt : integer;
     counter: Integer;
     maxIdx : integer;
 begin
@@ -808,10 +894,12 @@ begin
      // ###########################################
      // #### Restrict input to defined min max
      for counter := 0 to Example.FeatureVec.FeatureVecLen - 1 do
-         ok[counter] := Max(Min(Example.FeatureVec[counter], fNet.fInputMinMax[1]), fNet.fInputMinMax[0]);
+         ok[counter] := Max(Min(Example.FeatureVec[counter], fNet.fInputMinMax[counter][1]), fNet.fInputMinMax[counter][0]);
 
-     for layerCnt := 0 to Length(fNet.fLayer) - 1 do
-         ok := fNet.fLayer[layerCnt].Feed(ok);
+     ok := fNet.Feed(ok);
+
+     //for layerCnt := 0 to Length(fNet.fLayer) - 1 do
+     //s    ok := fNet.fLayer[layerCnt].Feed(ok);
       
      // maximum wins
      maxIdx := 0;

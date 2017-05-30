@@ -15,12 +15,12 @@ unit ufrmTestClassifier;
 
 interface
 
-{.$DEFINE INITRANDSEED}  // uncomment if you do not want the same train set 
+{.$DEFINE INITRANDSEED}  // uncomment if you do not want the same train set
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, BaseClassifier, ExtCtrls, StdCtrls, Matrix, ComCtrls, Haar2DAdaBoost,
-  Haar2DImageSweep, Image2DSweep;
+  Haar2DImageSweep, Image2DSweep, Types;
 
 type
   TfrmClassifierTest = class(TForm)
@@ -63,6 +63,7 @@ type
     butIntImgTest: TButton;
     butLDA: TButton;
     chkConfidence: TCheckBox;
+    chkWeights: TCheckBox;
     procedure butCreateGaussSetClick(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -99,6 +100,7 @@ type
     // temporary face classifier
     fSlidingWin : THaar2DSlidingWindow;
 
+    function Weights : TDoubleDynArray;
     procedure MergeNegExamples(const exmplFileName : string; lst : TClassRecList);
     procedure adaBoostImgStep(Sender : TObject; mtx : TDoubleMatrix; actNum, NumImags : integer; const FileName : string);
 
@@ -280,7 +282,7 @@ begin
           try
              learner.SetProps(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -371,7 +373,7 @@ begin
           try
              learner.SetProps(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -402,6 +404,7 @@ begin
           props.validationDataSetSize := 0.2;
           props.alpha := 0.8;
           props.cf := 0;
+          props.normMeanVar := True;
 
           props.numMinDeltaErr := 10;
           props.stopOnMinDeltaErr := 1e-4;
@@ -412,7 +415,7 @@ begin
           try
              learner.SetProps(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -444,7 +447,7 @@ begin
           try
              learner.SetProps(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -488,7 +491,7 @@ begin
              learner.SetProperties(props);
 
              Learner.Init(fExamples);
-             fClassifier := Learner.Learn;
+             fClassifier := Learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -547,7 +550,7 @@ begin
           try
              learner.SetProperties(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -585,7 +588,7 @@ begin
           learner := TDecisionStumpLearner.Create;
           try
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -614,7 +617,7 @@ begin
 
              learner.SetProperties(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -643,7 +646,7 @@ begin
 
              learner.SetProperties(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -673,7 +676,7 @@ begin
 
              learner.SetBaggingParams(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -816,7 +819,7 @@ begin
           try
              learner.SetProps(props);
              learner.Init(fExamples);
-             fClassifier := learner.Learn;
+             fClassifier := learner.Learn(Weights);
           finally
                  learner.Free;
           end;
@@ -1589,6 +1592,32 @@ begin
      FreeAndNil(fClMapBmp);
 
      PaintBox1.Invalidate;
+end;
+
+function TfrmClassifierTest.Weights: TDoubleDynArray;
+var sum : double;
+  counter: Integer;
+begin
+     SetLength(Result, fExamples.Count);
+
+     if chkWeights.Checked then
+     begin
+          sum := 0;
+          for counter := 0 to Length(Result) - 1 do
+          begin
+               Result[counter] := random;
+               sum := sum + Result[counter];
+          end;
+
+          for counter := 0 to Length(Result) - 1 do
+              Result[counter] := Result[counter]/sum;
+     end
+     else
+     begin
+          for counter := 0 to Length(Result) - 1 do
+              Result[counter] := 1/Length(Result);
+     end;
+
 end;
 
 end.
