@@ -154,7 +154,7 @@ type
 // ###########################################
 // #### Simple feed forward neural net learning class
 type
-  TNeuralNetLearner = class(TCustomLearner)
+  TNeuralNetLearner = class(TCustomWeightedLearner)
   private
     fProps : TNeuralNetProps;
 
@@ -165,15 +165,17 @@ type
     fclassLabels : TIntegerDynArray;
     foutputExpAct : TDoubleDynArray;
     fMaxNumNeurons : integer;
+    fCurExampleWeight : double;
+    fWeights : TDoubleDynArray;
 
     function DataSetMinMax : TNeuralMinMaxArr;
     function DataSetMeanVar : TNeuralMinMaxArr;
     procedure UpdateWeights(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
     procedure UpdateWeightsByLearnRate(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
     procedure UpdateWeightsMomentum(deltaK : double; outputs : TDoubleDynArray; neuron : TNeuron);
-    procedure BackProp(net : TFeedForwardNeuralNet; randSet: TCustomLearnerExampleList);
+    procedure BackProp(net : TFeedForwardNeuralNet; randSet: TCustomLearnerExampleList; idx : TIntegerDynArray);
   protected
-    function DoUnweightedLearn : TCustomClassifier; override;
+    function DoLearn(const weights : Array of double) : TCustomClassifier; override;
   public
     procedure SetProps(const Props : TNeuralNetProps);
 
@@ -583,7 +585,8 @@ end;
 
 { TNeuralNetLearner }
 
-procedure TNeuralNetLearner.BackProp(net : TFeedForwardNeuralNet; randSet : TCustomLearnerExampleList);
+procedure TNeuralNetLearner.BackProp(net : TFeedForwardNeuralNet; randSet : TCustomLearnerExampleList;
+  idx : TIntegerDynArray);
 var exmplCnt : integer;
     counter : integer;
     actIdx : integer;
@@ -613,13 +616,15 @@ begin
      // it reuses some global object variables
      for exmplCnt := 0 to randSet.Count - 1 do
      begin
+          fCurExampleWeight := fWeights[idx[exmplCnt]];
+          
           // define wanted output activation for the current example
-          if randSet.Example[exmplCnt].ClassVal <> lastClass then
+          if randSet.Example[idx[exmplCnt]].ClassVal <> lastClass then
           begin
                actIdx := -1;
                for counter := 0 to fNumCl - 1 do
                begin
-                    if fClassLabels[counter] = randSet.Example[exmplCnt].ClassVal then
+                    if fClassLabels[counter] = randSet.Example[idx[exmplCnt]].ClassVal then
                     begin
                          actIdx := counter;
                          break;
@@ -631,7 +636,7 @@ begin
           end;
 
           for counter := 0 to fNumFeatures - 1 do
-              fOk[0][counter] := randSet[exmplCnt].FeatureVec[counter];
+              fOk[0][counter] := randSet[idx[exmplCnt]].FeatureVec[counter];
 
           // first layer -> normalize input by mean var of the complete input
           for counter := 0 to fnumFeatures - 1 do
@@ -680,7 +685,7 @@ begin
      end;
 end;
 
-function TNeuralNetLearner.DoUnweightedLearn: TCustomClassifier;
+function TNeuralNetLearner.DoLearn(const weights : Array of double) : TCustomClassifier; 
 var net : TFeedForwardNeuralNet;
     layers : TNeuralLayerRecArr;
     counter: Integer;
@@ -691,7 +696,17 @@ var net : TFeedForwardNeuralNet;
     inputMinMax, inputMeanVar : TNeuralMinMaxArr;
     randSet : TCustomLearnerExampleList;
     validationSet : TCustomLearnerExampleList;
+    maxVal : double;
+    shuffIdx : TIntegerDynArray;
 begin
+     SetLength(fWeights, Length(weights));
+
+     // idea to use weights: multiply the weight update by the example weight.
+     // normalize weights to 1
+     maxVal := MaxValue(weights);
+     for counter := 0 to Length(weights) - 1 do
+         fWeights[counter] := weights[counter]/maxVal;
+     
      fclassLabels := Classes;
      fnumCl := Length(fclassLabels);
      fnumFeatures := DataSet.Example[0].FeatureVec.FeatureVecLen;
@@ -740,9 +755,8 @@ begin
 
           // ##########################################################
           // #### One batch learn iteration (randomized data set)
-          randSet.Shuffle;
-          Backprop(net, randSet);
-
+          shuffIdx := randSet.Shuffle;
+          Backprop(net, randSet, shuffIdx);
 
           // ##################################################
           // #### test learning error
@@ -821,7 +835,7 @@ begin
      // very simple update rule (simple gradient decent with learning factor eta)
      neuron.fWeights[0] := neuron.fWeights[0] + fProps.eta*deltaK*1;
      for counter := 1 to Length(neuron.fWeights) - 1 do
-         neuron.fWeights[counter] := neuron.fWeights[counter] + fProps.eta*deltaK*outputs[counter - 1];
+         neuron.fWeights[counter] := neuron.fWeights[counter] + fCurExampleWeight*fProps.eta*deltaK*outputs[counter - 1];
 end;
 
 
@@ -840,7 +854,7 @@ begin
          weightUpdate[counter] := fProps.eta*deltaK*outputs[counter - 1] + fProps.alpha*neuron.fDeltaWM1[counter];
 
      for counter := 0 to Length(neuron.fWeights) - 1 do
-         neuron.fWeights[counter] := neuron.fWeights[counter] + weightUpdate[counter];
+         neuron.fWeights[counter] := neuron.fWeights[counter] + fCurExampleWeight*weightUpdate[counter];
      neuron.fDeltaWM1 := weightUpdate;
 end;
 

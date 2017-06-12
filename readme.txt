@@ -60,6 +60,9 @@ Rabatscher Michael contact via www.mrsoft.org
 
 changelog:
 
+Date: 12.06.2017:
+* Implemented new idea for weighted neural network learning (weight multiplication on backprop step)
+
 Date: 16.03.2017:
 * started change log
 * Added quite a few confidence calculations: svm, lda, neural network, rbf, naive 

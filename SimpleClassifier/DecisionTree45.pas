@@ -273,8 +273,6 @@ var tree : TCustomTreeItem;
     i : integer;
     trainingIdx, validationIdx : TIntegerDynArray;
     trainLen : integer;
-    hlp : integer;
-    idx : integer;
 begin
      SetLength(trainingIdx, Length(weights));
 
@@ -284,14 +282,7 @@ begin
      if (fProps.LearnType = ltPrune) and (fProps.UseValidationSet) and (fProps.ValidationsetSize > 0) then
      begin
           // Create shuffle set
-          for i := length(weights) - 1 downto 1 do
-          begin
-               idx := random(i + 1);
-
-               hlp := trainingIdx[idx];
-               trainingIdx[idx] := trainingIdx[i];
-               trainingIdx[i] := hlp;
-          end;
+          trainingIdx := DataSet.Shuffle;
           trainLen := Max(1, Round(Length(weights)*(1 - fProps.ValidationsetSize)));
           SetLength(validationIdx, Length(weights) - trainLen);
           for i := trainLen to Length(weights) - 1 do

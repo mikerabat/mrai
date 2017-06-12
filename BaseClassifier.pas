@@ -101,7 +101,7 @@ type
     // clone without examples
     function CloneBase : TCustomLearnerExampleList; virtual;
 
-    procedure Shuffle;  // randomizes all the examples
+    function Shuffle : TIntegerDynArray;  // randomizes all the examples
     function Rand : TRandomGenerator;
 
     property Example[index : integer] : TCustomLearnerExample read GetExample write SetExample; default;
@@ -527,16 +527,23 @@ begin
      end;
 end;
 
-procedure TCustomLearnerExampleList.Shuffle;
+function TCustomLearnerExampleList.Shuffle : TIntegerDynArray;
 var i : integer;
     index : integer;
+    tmp : integer;
 begin
+     SetLength(Result, Count);
+     for i := 0 to Count - 1 do
+         Result[i] := i;
+
      // Fisher yates shuffle:
      for i := Count - 1 downto 1 do
      begin
           index := Rand.RandInt(i + 1);
 
-          Exchange(i, index);
+          tmp := Result[i];
+          Result[i] := Result[index];
+          Result[index] := tmp;
      end;
 end;
 
