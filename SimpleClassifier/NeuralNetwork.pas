@@ -30,7 +30,7 @@ uses Types, BaseClassifier, BaseMathPersistence;
 
 // base simple neuron
 type
-  TNeuronType = (ntLinear, ntExpSigmoid, ntTanSigmoid);
+  TNeuronType = (ntLinear, ntExpSigmoid, ntTanSigmoid, ntExpSigFast);
 type
   TNeuron = class(TBaseMathPersistence)
   private
@@ -217,6 +217,11 @@ end;
 
 function TNeuron.Feed(const Input : TDoubleDynArray): double;
 var i : integer;
+    absRes : double;
+    invBeta : double;
+    sign : double;
+const cD1 : double = (0.8808 - 0.5)/2;   // slope between -2:2
+      cD2 : double = (1 - 0.8808)/3;     // slope between 2:5
 begin
      assert(Length(input) + 1 = length(fWeights), 'Error input does not match learned weights');
 
@@ -229,6 +234,24 @@ begin
        ntLinear: Result := Result;
        ntExpSigmoid: Result := 1/(1 + exp(-fBeta*(Result)));
        ntTanSigmoid: Result := tanh(fBeta*(Result));
+       ntExpSigFast: begin
+                          absRes := abs(Result);
+                          invBeta := 1/fBeta;     
+                          sign := 1;
+                          if Result < 0 then
+                             sign := -1;
+                          
+                          if absRes <= 2*invBeta 
+                          then
+                              Result := 0.5 + fBeta*cD1*Result
+                          else if sign < 0 
+                          then
+                              Result := (1 - 0.8808) + sign*(absRes - 2)*cD2*fBeta
+                          else
+                              Result := 0.8808 + sign*(absRes - 2)*cD2*fBeta;
+
+                          Result := Max(0, Min(1, Result));
+                     end;
      end;
 end;
 
@@ -243,7 +266,8 @@ function TNeuron.Derrive(const outputVal: double): double;
 begin
      case fNeuralType of
        ntLinear: Result := fBeta;
-       ntExpSigmoid: Result := fBeta*(outputVal*(1 - outputVal));
+       ntExpSigmoid,
+       ntExpSigFast: Result := fBeta*(outputVal*(1 - outputVal));
        ntTanSigmoid: Result := fBeta*(1 - sqr(outputVal));
      else
          Result := 0;
@@ -440,7 +464,8 @@ begin
      case layers[High(layers)].NeuronType of
        ntLinear,
        ntTanSigmoid : fOutputMinMax[0] := -1;
-       ntExpSigmoid : fOutputMinMax[0] := 0;
+       ntExpSigmoid,
+       ntExpSigFast : fOutputMinMax[0] := 0;
      end;
 
      lastNumInputs := NumInputs;
@@ -461,13 +486,14 @@ begin
      // adjust the input activation by the min max values and according to the input neuron type
      case fLayer[0].fType of
        ntLinear:  SetBetaAndThreshFirstLayer( 1, fLayer[0]);
-       ntExpSigmoid: SetBetaAndThreshFirstLayer(10/(maxVal - minVal), fLayer[0]);
+       ntExpSigmoid,
+       ntExpSigFast: SetBetaAndThreshFirstLayer(10/(maxVal - minVal), fLayer[0]);
        ntTanSigmoid: SetBetaAndThreshFirstLayer(2*pi/(maxVal - minVal), fLayer[0]);
      end;
 
      for i := 1 to Length(fLayer) - 1 do
      begin
-          if fLayer[i - 1].fType <> ntExpSigmoid
+          if not (fLayer[i - 1].fType in [ntExpSigmoid, ntExpSigFast])
           then
               SetBetaAndThresh(1, 0, fLayer[i])
           else
