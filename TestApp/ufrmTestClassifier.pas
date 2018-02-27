@@ -797,7 +797,7 @@ procedure TfrmClassifierTest.butSVMClick(Sender: TObject);
 var learner : TSVMLearner;
     props : TSVMProps;
 begin
-     InitMathFunctions(False, False);
+     InitMathFunctions(itFPU, False);
      if Assigned(fExamples) then
      begin
           fClassifier.Free;
