@@ -126,7 +126,7 @@ uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
      IncrementalFischerLDA, FischerIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
      BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF, 
-     kmeans, NeuralNetwork, JSONReaderWriter, OptimizedFuncs;
+     kmeans, NeuralNetwork, JSONReaderWriter, MatrixASMStubSwitch;
 
 {$R *.dfm}
 
@@ -396,15 +396,16 @@ begin
           props.outputLayer := ntLinear;
 
           SetLength(props.layers, 2);
-          props.layers[0].NumNeurons := 3;
+          props.layers[0].NumNeurons := 12;
           props.layers[0].NeuronType := ntTanSigmoid;
-          props.layers[1].NumNeurons := 5;
+          props.layers[1].NumNeurons := 8;
           props.layers[1].NeuronType := ntExpSigmoid;
           props.eta := 0.001;
           props.validationDataSetSize := 0.2;
           props.alpha := 0.8;
           props.cf := 0;
           props.normMeanVar := True;
+          props.l1Normalization := 0.1;
 
           props.numMinDeltaErr := 10;
           props.stopOnMinDeltaErr := 1e-4;
@@ -609,8 +610,8 @@ begin
 
           learner := TDiscreteAdaBoostLearner.Create;
           try
-             props.NumRounds := 100;
-             props.PruneToLowestError := True;
+             props.NumRounds := 20;
+             props.PruneToLowestError := False;
              props.InitClassSpecificWeights := True;
              props.OwnsLearner := True;
              props.WeakLearner := TDecisionStumpLearner.Create;

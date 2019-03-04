@@ -211,14 +211,14 @@ begin
                     end;
                end;
 
-               fRef.fLearner.fMinIdx[featureIdx] := minIdx;
+               fRef.fLearner.fMinIdx[featureIdx] := SortIdx[minIdx];
 
                assert(minIdx >= 0, 'error in error calculation');
 
-               if minIdx < fRef.fLearner.DataSet.Count - 1
+               if minIdx > 0
                then
                    fRef.fLearner.fThresh[featureIdx] := (fRef.fLearner.DataSet[SortIdx[minIdx]].FeatureVec[featureIdx] +
-                                                         fRef.fLearner.DataSet[SortIdx[minIdx + 1]].FeatureVec[featureIdx]) / 2
+                                                         fRef.fLearner.DataSet[SortIdx[minIdx - 1]].FeatureVec[featureIdx]) / 2
                else
                    fRef.fLearner.fThresh[featureIdx] := fRef.fLearner.DataSet[SortIdx[minIdx]].FeatureVec[featureIdx];
           end;
@@ -351,7 +351,7 @@ begin
      if DataSet[SortIdx[0]].ClassVal = c1 then
      begin
           TotSumP := weights[SortIdx[0]];
-          SumPos[0] := weights[SortIdx[0]]
+          SumPos[0] := weights[SortIdx[0]];
      end
      else
      begin
@@ -402,7 +402,7 @@ begin
      fWeights := @weights[0];
 
      // ###########################################
-     // #### Learn a decission stump according to the wheights only
+     // #### Learn a decission stump according to the weights only
      // see: Viola Jones: Robust Real-Time Face Detection
      // the algorithm evaluates the weighted list in linear time
      SetLength(fErrors, DataSet[0].FeatureVec.FeatureVecLen);
@@ -424,6 +424,7 @@ begin
           try
              DecStumpThrList.AsyncEval(self);
 
+             sleep(10);
              while not DecStumpThrList.Finished(progress) do
                    DoProgress(progress);
           finally
@@ -455,11 +456,12 @@ begin
                     end;
                end;
 
-               fMinIdx[j] := minIdx;
+               // actual min index is the sorted feature index
+               fMinIdx[j] := SortIdx[minIdx];
 
                assert(minIdx >= 0, 'error in error calculation');
 
-               if minIdx < DataSet.Count - 1
+               if minIdx < Length(sortIdx) - 1
                then
                    fThresh[j] := (DataSet[SortIdx[minIdx]].FeatureVec[j] + DataSet[SortIdx[minIdx + 1]].FeatureVec[j]) / 2
                else

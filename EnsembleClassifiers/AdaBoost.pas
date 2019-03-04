@@ -34,6 +34,8 @@ type
 // AdaBoost classification function -> Results in -1, 1
 type
   TDiscreteAdaBoostClassifier = class(TCustomBoostingClassifier)
+  private
+    fClSum : double;
   public
     function Classify(Example : TCustomExample; var confidence : double) : integer; override;
   end;
@@ -120,7 +122,7 @@ begin
           if beta > 0.5 then
           begin
                // the classifier cannot do better
-               // todo: eventualy reverse classifier polarity which but that only works for 2 class problems
+               // todo: eventualy reverse classifier polarity / but that only works for 2 class problems
                FreeAndNil(weakClassifier);
                Result := False;
                exit;
@@ -151,12 +153,19 @@ function TDiscreteAdaBoostClassifier.Classify(Example: TCustomExample;
 var classifySum : double;
     k : integer;
 begin
-     classifySum := fB;
+     if fClSum = 0 then
+     begin
+          for k := 0 to Classifiers.Count - 1 do
+              fClSum := fWeights[k] + fClSum;
+          fClSum := 0.5*fClSum;
+     end;
+
+     classifySum := -fB;
 
      for k := 0 to Classifiers.Count - 1 do
          classifySum := classifySum + fWeights[k]*Classifiers[k].Classify(Example);
 
-     if classifySum >= 0
+     if classifySum >= fClSum
      then
          Result := 1
      else
@@ -195,7 +204,7 @@ begin
 
      // reweight the current example weights:
      for i := 0 to DataSet.Count - 1 do
-         Weights[i] := Weights[i]*exp(-DataSet[i].ClassVal*classvals[i]*confidence[i]);
+         Weights[i] := Weights[i]*exp(-DataSet[i].ClassVal*classvals[i]);
 end;
 
 class function TGentleBoostLearner.CanLearnClassifier(
@@ -213,6 +222,7 @@ var i : integer;
     classVal : integer;
 begin
      confidence := fB;
+
      for i := 0 to Classifiers.Count - 1 do
      begin
           classVal := Classifiers[i].Classify(Example, actConf);

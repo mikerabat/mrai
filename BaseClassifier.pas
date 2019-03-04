@@ -52,7 +52,7 @@ type
   public
     property FeatureVec : TCustomFeatureList read fFeatureVec;
 
-    constructor Create(FeatureFec : TCustomFeatureList; ownsFeatureVec : boolean);
+    constructor Create(FeatureVec : TCustomFeatureList; ownsFeatureVec : boolean);
     destructor Destroy; override;
   end;
 
@@ -229,7 +229,7 @@ end;
 function TCustomLearnerExampleList.GetExample(
   index: integer): TCustomLearnerExample;
 begin
-     assert((Items[index] is TCustomLearnerExample), 'Item is not a feature');
+     //assert((Items[index] is TCustomLearnerExample), 'Item is not a feature');
      Result := TCustomLearnerExample(Items[index]);
 end;
 
@@ -597,6 +597,7 @@ begin
 
      SetLength(Result, DataSet.Count);
      SetLength(values, DataSet.Count);
+     
      for j := 0 to DataSet.Count - 1 do
      begin
           Result[j] := j;
@@ -831,9 +832,9 @@ end;
 
 { TCustomExample }
 
-constructor TCustomExample.Create(FeatureFec: TCustomFeatureList; ownsFeatureVec : boolean);
+constructor TCustomExample.Create(FeatureVec: TCustomFeatureList; ownsFeatureVec : boolean);
 begin
-     fFeatureVec := FeatureFec;
+     fFeatureVec := FeatureVec;
      fOwnsFeature := ownsFeatureVec;
 end;
 

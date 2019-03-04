@@ -142,6 +142,7 @@ begin
 
         // ###########################################################
         // #### Create the AdaBoost ensemble classifier
+        DoProgress(0);
         for k := 0 to fProps.NumRounds - 1 do
         begin
              // normalize wheights such they result in a distribution:
@@ -164,7 +165,7 @@ begin
              else
                  classifier.AddClassifier(cl);
 
-             DoProgress(100*k div fProps.NumRounds);
+             DoProgress(100*(k + 1) div fProps.NumRounds);
         end;
 
         // #############################################################

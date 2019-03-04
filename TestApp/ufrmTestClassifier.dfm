@@ -2,7 +2,7 @@ object frmClassifierTest: TfrmClassifierTest
   Left = 0
   Top = 0
   Caption = 'Classification Test'
-  ClientHeight = 641
+  ClientHeight = 677
   ClientWidth = 822
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -15,14 +15,14 @@ object frmClassifierTest: TfrmClassifierTest
   OnDestroy = FormDestroy
   DesignSize = (
     822
-    641)
+    677)
   PixelsPerInch = 96
   TextHeight = 16
   object PaintBox1: TPaintBox
     Left = 9
     Top = 172
     Width = 492
-    Height = 481
+    Height = 497
     Anchors = [akLeft, akTop, akRight, akBottom]
     OnPaint = PaintBox1Paint
   end
@@ -185,7 +185,7 @@ object frmClassifierTest: TfrmClassifierTest
     Left = 507
     Top = 172
     Width = 307
-    Height = 461
+    Height = 497
     Anchors = [akTop, akRight, akBottom]
     Caption = 'Image Classifiers'
     TabOrder = 1

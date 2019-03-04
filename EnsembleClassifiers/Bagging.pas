@@ -60,7 +60,7 @@ type
 
 implementation
 
-uses Math;
+uses Math, BaseMathPersistence;
 
 // ##################################################################
 // #### Local definitions
@@ -232,5 +232,9 @@ procedure TVotedBaggingLearner.SetBaggingParams(const props : TVotedBaggingProps
 begin
      fProps := Props;
 end;
+
+initialization
+  RegisterMathIO(TVotedBagging);
+
 
 end.

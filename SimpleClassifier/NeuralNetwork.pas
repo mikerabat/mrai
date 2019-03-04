@@ -122,6 +122,7 @@ type
     eta : double;                // learning rate
     alpha : double;              // used in the momentum algorithm as multiplier of the second term learning rate
     cf : double;                 // flat spot elimination constant (used in momentum backprop)
+    l1Normalization : double;    // normalization factor used in the weight update proc
     maxNumIter : integer;        // maximum number of batch iterations
     minNumIter : integer;        // minimum number of batch iterations (despite the error change)
     stopOnMinDeltaErr : double;  // when training error change is lower than this delta then stop training
@@ -860,8 +861,21 @@ var counter : integer;
 begin
      // very simple update rule (simple gradient decent with learning factor eta)
      neuron.fWeights[0] := neuron.fWeights[0] + fProps.eta*deltaK*1;
-     for counter := 1 to Length(neuron.fWeights) - 1 do
-         neuron.fWeights[counter] := neuron.fWeights[counter] + fCurExampleWeight*fProps.eta*deltaK*outputs[counter - 1];
+
+     if fProps.l1Normalization > 0 then
+     begin
+          for counter := 1 to Length(neuron.fWeights) - 1 do
+          begin
+               neuron.fWeights[counter] := neuron.fWeights[counter] + Sign(neuron.fWeights[counter])*fProps.l1Normalization;
+               neuron.fWeights[counter] := neuron.fWeights[counter] +
+                                           fCurExampleWeight*fProps.eta*deltaK*outputs[counter - 1];
+          end;
+     end
+     else
+     begin
+          for counter := 1 to Length(neuron.fWeights) - 1 do
+              neuron.fWeights[counter] := neuron.fWeights[counter] + fCurExampleWeight*fProps.eta*deltaK*outputs[counter - 1];
+     end;
 end;
 
 

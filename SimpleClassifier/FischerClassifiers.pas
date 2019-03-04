@@ -407,6 +407,7 @@ var rec : TDoubleMatrix;
     eigVecInv : TDoubleMatrix;
 begin
      // create mean free matrix
+     Result := nil;
      eigVecInv := nil;
      rec := nil;
      sampleEigVec := TDoubleMatrix.Create;
@@ -833,6 +834,7 @@ begin
      end
      else
      begin
+          a := nil;
           exmpl := TDoubleMatrix.Create(1, Example.FeatureVec.FeatureVecLen);
           try
              for i := 0 to Example.FeatureVec.FeatureVecLen - 1 do

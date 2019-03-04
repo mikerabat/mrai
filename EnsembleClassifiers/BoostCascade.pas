@@ -21,7 +21,7 @@ unit BoostCascade;
 
 interface
 
-uses SysUtils, BaseClassifier, BaseMathPersistence, CustomBooster, RandomEng;
+uses SysUtils, BaseClassifier, BaseMathPersistence, CustomBooster, RandomEng, Types;
 
 type
   TCustomBoostArr = Array of TCustomBoostingClassifier;
@@ -51,7 +51,7 @@ type
 
 type
   // can be used to update the clasifiers properties!
-  TLearnerCreate = procedure(Sender : TObject; cl : TCustomBoostLearner) of Object;
+  TLearnerCreate = procedure(Sender : TObject; cl : TCustomWeightedLearner) of Object;
 
 type
   TCascadeBoostProps = record
@@ -71,9 +71,9 @@ type
     validationPerc : double;     // value 0-1 - Percentage of examples used to create the validation set
 
     // init properties: define the first N classifiers according to these props:
-    minFalsePosRate : Array of double;
-    minDetectRate : Array of double;
-    NumFeatures : Array of integer;
+    minFalsePosRate : TDoubleDynArray;
+    minDetectRate : TDoubleDynArray;
+    NumFeatures : TIntegerDynArray;
   end;
 
 type
@@ -81,24 +81,32 @@ type
  private
    fProps : TCascadeBoostProps;
    fValidationSet : TCustomLearnerExampleList;
+   fTrainSet : TCustomLearnerExampleList;
    fLearnerCreate : TLearnerCreate;
    fRndEng : TRandomGenerator;
+   fNumCascade : integer;
+   fLastProgress : integer;
+   fWeakLearnerCreate: TLearnerCreate;
 
    procedure AdjustBOnValidationSet(cl : TCustomClassifier; const desiredD : double; var F, D : double);
    procedure CreateValidationSet;
+   procedure OnWeakClProgress(Sender : TObject; progress : integer);
  protected
    function DoUnweightedLearn : TCustomClassifier; override;
  public
    property OnLearnerCreate : TLearnerCreate read fLearnerCreate write fLearnerCreate;
+   property OnWeakLearnerCreate : TLearnerCreate read fWeakLearnerCreate write fWeakLearnerCreate;
    procedure SetProperties(const Props : TCascadeBoostProps);
 
+   class function CanLearnClassifier(Classifier : TCustomClassifierClass) : boolean; override;
+   
    constructor Create;
    destructor Destroy; override;
  end;
 
 implementation
 
-uses SimpleDecisionStump, AdaBoost, contnrs, math, types, MathUtilFunc;
+uses SimpleDecisionStump, AdaBoost, contnrs, math, MathUtilFunc;
 
 const cBoostCascadeRefClassVal = 'boostCascadeRefCl';
       cBoostCascadeCascade = 'boostCascadeArr';
@@ -112,44 +120,91 @@ procedure TCascadeBoostLearner.AdjustBOnValidationSet(cl: TCustomClassifier; con
 var counter : integer;
     classVal : integer;
     conf : TDoubleDynArray;
-    idx : integer;
+    exmplClass : integer;
+    numPos : integer;
+    numNeg : integer;
+    numdectRateExmpls : integer;
+    maxThresh : double;
+    minThresh : double;
+    iter : double;
 begin
      F := 0;
      D := 0;
+     numPos := 0;
+     numNeg := 0;
      SetLength(conf, fValidationSet.Count);
 
+     // D: detection rate of class val = 1.
+     // F: false positive rate
      for counter := 0 to fValidationSet.Count - 1 do
      begin
-          classVal := cl.Classify(fValidationSet.Example[counter], conf[counter]);
+          classVal := cl.Classify(fValidationSet.Example[counter]);
+          exmplClass := fValidationSet.Example[counter].ClassVal;
 
-          conf[counter] := classVal*conf[counter];
-          if classVal = fValidationSet.Example[counter].ClassVal
+          if exmplClass = 1 
+          then
+              inc(numPos)
+          else
+              inc(numNeg);
+          
+          if (classVal = exmplClass) and (exmplClass = 1)
           then
               D := D + 1
-          else
+          else if (classVal = 1) and (exmplClass <> 1) 
+          then
               F := F + 1;
      end;
 
      // set B such that the desired detection rate is met
-     idx := Min(Length(conf) - 2, Round((1 - desiredD)*Length(conf)));
+     numdectRateExmpls := Min(numPos, Round(desiredD)*numPos);
 
-     if D < idx then
+     if D < numdectRateExmpls then
      begin
+          // ###############################################
+          // #### "binary" search for a threshold that allows the anticipated detection rate
+
+          // find the maximum threshold possible
+          minThresh := 0;
+          for counter := 0 to Length(THackBoostCl(cl).fWeights) - 1 do
+              minThresh := minThresh + THackBoostCl(cl).fWeights[counter];
+           
+          minThresh := -minThresh; 
+          maxThresh := THackBoostCl(cl).fB;
+
+          iter := (maxThresh - minThresh)/1000;
+          
           // sort the list to ease the detection rate search
-          QuickSort(conf, sizeof(double), Length(conf), DoubleSortFunc);
-
-          THackBoostCl(cl).fB := (conf[idx] + conf[idx + 1])/2;
-
-          // reevaluate validation set -> Get the real rates
-          for counter := 0 to fValidationSet.Count - 1 do
+          while (maxThresh > minThresh) do
           begin
-               classVal := cl.Classify(fValidationSet.Example[counter]);
+               // try as best as we can
+               THackBoostCl(cl).fB := (maxThresh + minThresh)/2;
 
-               if classVal = fValidationSet.Example[counter].ClassVal
+               F := 0;
+               D := 0;
+               // reevaluate validation set -> Get the real rates
+               for counter := 0 to fValidationSet.Count - 1 do
+               begin
+                    classVal := cl.Classify(fValidationSet.Example[counter]);
+
+                    exmplClass := fValidationSet.Example[counter].ClassVal;
+  
+                    if (classVal = exmplClass) and (exmplClass = 1)
+                    then
+                        D := D + 1
+                    else if (classVal = 1) and (exmplClass <> 1) 
+                    then
+                        F := F + 1;
+               end;
+
+               if D < numdectRateExmpls 
                then
-                   D := D + 1
+                   minThresh := THackBoostCl(cl).fB 
                else
-                   F := F + 1;
+                   maxThresh := THackBoostCl(cl).fB;
+
+               // ensure that we get not lost in the search 
+               maxThresh := maxThresh - iter;
+               minThresh := minThresh + iter;
           end;
      end;
 
@@ -158,8 +213,22 @@ begin
      // rate is increased
      // todo!
 
-     D := D/fValidationSet.Count;
-     F := F/fValidationSet.Count;
+     if numPos > 0 
+     then
+         D := D/numPos
+     else
+         D := 0;
+     if numNeg > 0 
+     then
+         F := F/numNeg
+     else
+         F := 0;
+end;
+
+class function TCascadeBoostLearner.CanLearnClassifier(
+  Classifier: TCustomClassifierClass): boolean;
+begin
+     Result := True;
 end;
 
 constructor TCascadeBoostLearner.Create;
@@ -180,98 +249,24 @@ begin
 end;
 
 procedure TCascadeBoostLearner.CreateValidationSet;
-var clIdx : TIntegerDynArray;
-    counter: Integer;
-    numExmpl : integer;
-    lastClassVal : integer;
-    validationCnt : integer;
-    obj : TCustomLearnerExample;
 begin
-     SetLength(clidx, DataSet.Count);
-
-     validationCnt := Max(1, Round(fProps.validationPerc*DataSet.Count) div 2);
-
-     fValidationSet := TCustomLearnerExampleList(DataSet.ClassType).Create;
-     fValidationSet.OwnsObjects := DataSet.OwnsObjects;
-
-     numExmpl := 0;
-     lastClassVal := -1000000;
-     for counter := 0 to DataSet.Count - 1 do
-     begin
-          if (DataSet[counter].ClassVal = lastClassVal) or (lastClassVal = -1000000) then
-          begin
-               lastClassVal := DataSet[counter].ClassVal;
-               clIdx[numExmpl] := counter;
-               inc(numExmpl);
-          end;
-     end;
-
-     // randomized extraction
-     while fValidationSet.Count < validationCnt do
-     begin
-          repeat
-                counter := fRndEng.RandInt(numExmpl);
-          until clIdx[counter] <> -1;
-
-          obj := DataSet[counter];
-
-          fValidationSet.Add(obj);
-          DataSet[counter] := nil;
-
-          clIdx[counter] := -1;
-     end;
-     DataSet.Pack;
-
-     for counter := 0 to DataSet.Count - 1 do
-     begin
-          if DataSet[counter].ClassVal <> lastClassVal then
-          begin
-               lastClassVal := DataSet[counter].ClassVal;
-               break;
-          end;
-     end;
-
-     numExmpl := 0;
-     for counter := 0 to DataSet.Count - 1 do
-     begin
-          if (DataSet[counter].ClassVal = lastClassVal) or (lastClassVal = -1000000) then
-          begin
-               clIdx[numExmpl] := counter;
-               inc(numExmpl);
-          end;
-     end;
-
-     // randomized extraction
-     while fValidationSet.Count < validationCnt do
-     begin
-          repeat
-                counter := fRndEng.RandInt(numExmpl);
-          until clIdx[counter] <> -1;
-
-          obj := DataSet[counter];
-
-          fValidationSet.Add(obj);
-          DataSet[counter] := nil;
-
-          clIdx[counter] := -1;
-     end;
-     DataSet.Pack;
+     fTrainSet.Free;
+     fValidationSet.Free;
+     DataSet.CreateTrainAndValidationSet( round(fProps.validationPerc*100), fTrainSet, fValidationSet );
 end;
 
 function TCascadeBoostLearner.DoUnweightedLearn: TCustomClassifier;
 var cascade : TCustomBoostArr;
     F, D : double;  // actual False positive (F) and Detection (D) rate
     prevF : double;
-    numRounds : integer;
     ni : integer;
     boostProps : TBoostProperties;
     minFalsePosStageRate : double;
     learner : TCustomBoostLearner;
     counter: Integer;
     featureIncrement : integer;
+    numRounds : integer;
 begin
-     CreateValidationSet;
-
      // set at least one default false positive rate
      if Length(fProps.minFalsePosRate) = 0 then
      begin
@@ -284,71 +279,100 @@ begin
           fProps.minDetectRate[0] := 0.99;
      end;
 
-     SetLength(cascade, 100);
+     SetLength(cascade, fProps.maxNumCascade);
 
      F := 1.0;
      D := 1.0;
-     numRounds := 0;
+     fNumCascade := 0;
 
-     while (F > fProps.OverallFalsePosRate) and ((fProps.maxNumCascade <= 0) or (numRounds < fProps.maxNumCascade)) do
+     while (dataSet.Count > 2) and (F > fProps.OverallFalsePosRate) and ((fProps.maxNumCascade <= 0) or (fNumCascade < fProps.maxNumCascade)) do
      begin
+          CreateValidationSet;
+          
           ni := 1;
-          if numRounds < Length(fProps.NumFeatures) then
-             ni := fProps.NumFeatures[numRounds];
+          if fNumCascade < Length(fProps.NumFeatures) then
+             ni := fProps.NumFeatures[fNumCascade];
 
-          minFalsePosStageRate := fProps.minFalsePosRate[Min(Length(fProps.minFalsePosRate), numRounds)];
+          minFalsePosStageRate := fProps.minFalsePosRate[Min(Length(fProps.minFalsePosRate) - 1, fNumCascade)];
           prevF := F;
 
           if fProps.featureIncrease < 1 then
           begin
                featureIncrement := ni;
-               if numRounds > 0 then
-                  featureIncrement := Round(cascade[numRounds - 1].Classifiers.Count*fProps.featureIncrease);
+               if fNumCascade > 0 then
+                  featureIncrement := Round(cascade[fNumCascade - 1].Classifiers.Count*fProps.featureIncrease);
           end
           else
-          begin
-               featureIncrement := ni;
-               if (numRounds > 0) and (cascade[numRounds - 1].Classifiers.Count > fProps.featureIncrease) then
-                  featureIncrement := Round(fProps.featureIncrease);
-          end;
+              featureIncrement := Round(fProps.featureIncrease);
 
+          cascade[fNumCascade] := nil;
+          
           // adjust the numbers of features until a specific false positive rate is achivied
-          while (F > minFalsePosStageRate*prevF) or (dataSet.Count < 3) do
+          // try only two times - more increase is not feasable
+          numRounds := 0;
+          while ( (F > minFalsePosStageRate*prevF) and (dataSet.Count > 3) ) and (numRounds < 3) do
           begin
+               cascade[fNumCascade].Free;
+               
                boostProps.NumRounds := ni;
                boostProps.PruneToLowestError := fProps.PruneToLowestError;
                boostProps.InitClassSpecificWeights := fProps.InitClassSpecificWeights;
 
                boostProps.OwnsLearner := False;
                boostProps.WeakLearner := fProps.WeakLearner.Create;
+               boostProps.WeakLearner.OnLearnProgress := OnWeakClProgress;
 
+               if Assigned(fWeakLearnerCreate) then
+                  fWeakLearnerCreate(self, boostProps.WeakLearner);
+               
                // #######################################################
                // #### learn the classifier
                learner := fProps.learnerClass.Create;
                try
+                  learner.SetProperties(boostProps);
+                  learner.Init(fTrainSet);
+                  
                   // step to update learner properties!
                   if Assigned(fLearnerCreate) then
                      fLearnerCreate(Self, learner);
 
-                  cascade[numRounds] := learner.Learn as TCustomBoostingClassifier;
+                  cascade[fNumCascade] := learner.Learn as TCustomBoostingClassifier;
                finally
                       learner.Free;
                end;
                boostProps.WeakLearner.Free;
 
-               // Determine Fi, Di - detection and classification rate of the current classifier
-               AdjustBOnValidationSet(cascade[numRounds], fProps.minDetectRate[Min(Length(fProps.minDetectRate) - 1, numRounds)], F, D);
+               // Determine Fi, Di - detection and false positive rate of the current classifier
+               AdjustBOnValidationSet(cascade[fNumCascade], fProps.minDetectRate[Min(Length(fProps.minDetectRate) - 1, fNumCascade)], F, D);
 
                inc(ni, featureIncrement);
+               inc(numRounds);
           end;
 
           // reduce the data set and train the next stage only with false detected examples!
           for counter := DataSet.Count - 1 downto 0 do
-              if cascade[numRounds].Classify(DataSet[counter]) = DataSet[counter].ClassVal then
+              if cascade[fNumCascade].Classify(DataSet[counter]) = DataSet[counter].ClassVal then
                  DataSet.Delete(counter);
+
+          inc(fNumCascade);
      end;
 
+     SetLength(cascade, fNumCascade);
+
+     DoProgress(100);
      Result := TCascadeBoostClassifier.Create(cascade, -1);
+end;
+
+procedure TCascadeBoostLearner.OnWeakClProgress(Sender: TObject;
+  progress: integer);
+var aProgress : integer;
+begin
+     aProgress := Min(99, (fNumCascade*100 + progress) div fProps.maxNumCascade );
+     if aProgress <> fLastProgress then
+     begin
+          DoProgress( aProgress );
+          fLastProgress := aProgress;
+     end;
 end;
 
 procedure TCascadeBoostLearner.SetProperties(const Props: TCascadeBoostProps);
@@ -384,7 +408,7 @@ begin
      while i < Length(fCascade) do
      begin
           Result := fCascade[i].Classify(example, confidence);
-          if Result <> fRefClassVal then
+          if Result = fRefClassVal then
              break;
 
           inc(i);
@@ -473,9 +497,14 @@ begin
      begin
           Result := True;
           fCascade[fActIdx] := Obj as TCustomBoostingClassifier;
+          inc(fActIdx);
      end
      else
          Result := inherited OnLoadObject(Obj);
 end;
+
+initialization
+  RegisterMathIO(TCascadeBoostClassifier);
+
 
 end.
