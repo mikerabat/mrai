@@ -185,7 +185,8 @@ type
 
 implementation
 
-uses Math, SysUtils, BaseMatrixExamples, Matrix;
+uses Math, SysUtils, BaseMatrixExamples, Matrix, MatrixASMStubSwitch, 
+  MatrixConst;
 
 // ################################################
 // ##### persistence
@@ -902,12 +903,10 @@ end;
 function TNeuralNetLearner.DataSetMeanVar: TNeuralMinMaxArr;
 var counter : integer;
     featureCnt : integer;
-    data : TDoubleDynArray;
-    aMean, aVar : Extended;
     aMeanVarMtx : IMatrix;
+    aMeanVar : TMeanVarRec;
 begin
      SetLength(Result, DataSet[0].FeatureVec.FeatureVecLen);
-     SetLength(data, DataSet.Count);
 
      if DataSet is TMatrixLearnerExampleList then
      begin
@@ -921,15 +920,15 @@ begin
      end
      else
      begin
-          SetLength(data, DataSet.Count);
+          aMeanVarMtx := TDoubleMatrix.Create( DataSet.Count, 1 );
           for featureCnt := 0 to Length(Result) - 1 do
           begin
                for counter := 0 to DataSet.Count - 1 do
-                   data[counter] := DataSet[counter].FeatureVec[featureCnt];
+                   aMeanVarMtx.Vec[counter] := DataSet[counter].FeatureVec[featureCnt];
 
-               MeanAndStdDev(data, aMean, aVar);
-               Result[featureCnt][0] := aMean;
-               Result[featureCnt][1] := aVar;
+               VecMeanVar( aMeanVar, aMeanVarMtx.StartElement, aMeanVarMtx.Width, True);
+               Result[featureCnt][0] := aMeanVar.aMean;
+               Result[featureCnt][1] := sqrt( aMeanVar.aVar );
           end;
      end;
 end;
