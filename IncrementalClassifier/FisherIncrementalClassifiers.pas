@@ -12,21 +12,21 @@
 // #### limitations under the License.
 // ###################################################################
 
-unit FischerIncrementalClassifiers;
+unit FisherIncrementalClassifiers;
 
 // #############################################################
-// #### Classifier for the incremental Fischer learning algorithm
+// #### Classifier for the incremental Fisher learning algorithm
 // ####- both the standard and a robust implementations
 // #############################################################
 
 interface
 
-uses SysUtils, Matrix, Types, BaseClassifier, IncrementalPCA, PCA, FischerClassifiers, BaseMathPersistence;
+uses SysUtils, Matrix, Types, BaseClassifier, IncrementalPCA, PCA, FisherClassifiers, BaseMathPersistence;
 
 // #############################################################
 // #### Incremental classifier data holder + classification procedure
 type
-  TIncrementalFischerLDAClassifier = class(TCustomClassifier)
+  TIncrementalFisherLDAClassifier = class(TCustomClassifier)
   private
     fPCA : TMatrixPCA;
 
@@ -77,7 +77,7 @@ type
 // ##########################################################
 // #### Same as base class but with a robust pca data holder
 type
-  TFastRobustIncrementalLDAClassifier = class(TIncrementalFischerLDAClassifier)
+  TFastRobustIncrementalLDAClassifier = class(TIncrementalFisherLDAClassifier)
   protected
     function CreatePCA : TMatrixPCA; override;
   end;
@@ -97,7 +97,7 @@ const cPCA = 'PCA';
       cPCANumVecs = 'PCANumKeepVecs';
 
 
-procedure TIncrementalFischerLDAClassifier.OnLoadBeginList(
+procedure TIncrementalFisherLDAClassifier.OnLoadBeginList(
   const Name: String; count: integer);
 begin
      fActReaderIndex := -1;
@@ -110,12 +110,12 @@ begin
          inherited;
 end;
 
-procedure TIncrementalFischerLDAClassifier.OnLoadEndList;
+procedure TIncrementalFisherLDAClassifier.OnLoadEndList;
 begin
      inherited;
 end;
 
-procedure TIncrementalFischerLDAClassifier.OnLoadIntArr(const Name: String;
+procedure TIncrementalFisherLDAClassifier.OnLoadIntArr(const Name: String;
   const Value: TIntegerDynArray);
 begin
      if CompareText(Name, cLDAExmpl) = 0
@@ -128,7 +128,7 @@ begin
          inherited;
 end;
 
-function TIncrementalFischerLDAClassifier.OnLoadObject(
+function TIncrementalFisherLDAClassifier.OnLoadObject(
   Obj: TBaseMathPersistence): boolean;
 begin
      if fActReaderIndex >= 0 then
@@ -141,7 +141,7 @@ begin
          Result := inherited OnLoadObject(obj);
 end;
 
-function TIncrementalFischerLDAClassifier.OnLoadObject(const Name: String;
+function TIncrementalFisherLDAClassifier.OnLoadObject(const Name: String;
   Obj: TBaseMathPersistence): boolean;
 begin
      Result := True;
@@ -155,8 +155,8 @@ begin
          Result := Inherited OnLoadObject(Name, Obj);
 end;
 
-{ TIncrementalFischerLDAClassifier }
-procedure TIncrementalFischerLDAClassifier.DefineProps;
+{ TIncrementalFisherLDAClassifier }
+procedure TIncrementalFisherLDAClassifier.DefineProps;
 var i : Integer;
 begin
      AddObject(cPCA, fPCA);
@@ -172,7 +172,7 @@ begin
         AddIntArr(cLDAExmpl, fClassIdx);
 end;
 
-function TIncrementalFischerLDAClassifier.PropTypeOfName(
+function TIncrementalFisherLDAClassifier.PropTypeOfName(
   const Name: string): TPropType;
 begin
      if (CompareText(Name, cPCA) = 0) or (CompareText(Name, cLDAMatrix) = 0) or
@@ -187,7 +187,7 @@ begin
 end;
 
 
-procedure TIncrementalFischerLDAClassifier.AddClassIDx(alabel: integer);
+procedure TIncrementalFisherLDAClassifier.AddClassIDx(alabel: integer);
 begin
      if Length(fClassIdx) <= fNumLabels + 1 then
         SetLength(fClassIdx, 100 + Length(fClassIdx));
@@ -196,7 +196,7 @@ begin
      inc(fNumLabels);
 end;
 
-function TIncrementalFischerLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
+function TIncrementalFisherLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
 var i : integer;
     a : IMatrix;
     vt : IMatrix;
@@ -212,7 +212,7 @@ begin
      end;
 end;
 
-function TIncrementalFischerLDAClassifier.Classify(Example: TCustomExample;
+function TIncrementalFisherLDAClassifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var a : TDoubleMatrix;
     x0 : TDoubleMatrix;
@@ -264,7 +264,7 @@ begin
      end;
 end;
 
-function TIncrementalFischerLDAClassifier.ProjectToLDASpaceAndClassify(
+function TIncrementalFisherLDAClassifier.ProjectToLDASpaceAndClassify(
   a: TDoubleMatrix): integer;
 var g : TDoubleMatrix;
     distances : TDoubleDynArray;
@@ -309,7 +309,7 @@ begin
      end;
 end;
 
-constructor TIncrementalFischerLDAClassifier.Create;
+constructor TIncrementalFisherLDAClassifier.Create;
 begin
      fPCA := nil;
 
@@ -318,12 +318,12 @@ begin
      fClassLabels := nil;
 end;
 
-function TIncrementalFischerLDAClassifier.CreatePCA: TMatrixPCA;
+function TIncrementalFisherLDAClassifier.CreatePCA: TMatrixPCA;
 begin
      Result := TIncrementalPCA.Create;
 end;
 
-destructor TIncrementalFischerLDAClassifier.Destroy;
+destructor TIncrementalFisherLDAClassifier.Destroy;
 var  i: Integer;
 begin
      fPCA.Free;
@@ -333,7 +333,7 @@ begin
          fClassCenters[i].Free;
 end;
 
-function TIncrementalFischerLDAClassifier.GetPCA: TMatrixPCA;
+function TIncrementalFisherLDAClassifier.GetPCA: TMatrixPCA;
 begin
      if not Assigned(fPCA) then
         fPCA := CreatePCA;
@@ -341,14 +341,14 @@ begin
      Result := fPCA;
 end;
 
-procedure TIncrementalFischerLDAClassifier.SetClassIdx(
+procedure TIncrementalFisherLDAClassifier.SetClassIdx(
   const Value: TIntegerDynArray);
 begin
      fClassIdx := Value;
      fNumLabels := Length(fClassIdx);
 end;
 
-procedure TIncrementalFischerLDAClassifier.SetClassLabels(
+procedure TIncrementalFisherLDAClassifier.SetClassLabels(
   const Value: TIntegerDynArray);
 begin
      fClassLabels := Value;

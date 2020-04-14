@@ -12,10 +12,10 @@
 // #### limitations under the License.
 // ###################################################################
 
-unit FischerBatchLDA;
+unit FisherBatchLDA;
 
 // #############################################################
-// #### Fischer LDA in batch learning mode.
+// #### Fisher LDA in batch learning mode.
 // #############################################################
 
 // based on Martina Urays (and other papers) Phd:
@@ -41,12 +41,12 @@ type
   TFisherAugmentedBaseProps = record
     UseFullSpace : boolean;
     ClassifierType : TFisherAugmentedClassifierType;
-    NumLDAVectorsToKeep : integer;                   // todo: eventually take the pca eigenvalues energy as property
+    NumLDAVectorsToKeep : integer;                   // todo: pherhaps take the pca eigenvalues energy as property
     RobustPCAProps : TFastRobustPCAProps;            // only used in case the classifier type is ctFastRobust
   end;
 
 // ##################################################
-// #### Batch Fischer LDA algorithm.
+// #### Batch Fisher LDA algorithm.
 // Phd: Incremental, Robust, and Efficient Linear Discriminant Analysis Learning, page 33
 // Augmented subspace learning without any vector reduction
 type
@@ -69,7 +69,7 @@ type
   end;
 
 // ##################################################
-// #### Batch Fischer LDA algorithm.
+// #### Batch Fisher LDA algorithm.
 // Phd: Incremental, Robust, and Efficient Linear Discriminant Analysis Learning, page 33
 // Augmented subspace learning with vector reduction
 type
@@ -83,14 +83,14 @@ type
 
 implementation
 
-uses BaseMatrixExamples, Math, LinearAlgebraicEquations, FischerClassifiers, MatrixConst;
+uses BaseMatrixExamples, Math, LinearAlgebraicEquations, FisherClassifiers, MatrixConst;
 
 { TFisherBatchLDALearner }
 
 class function TFisherBatchLDALearner.CanLearnClassifier(
   Classifier: TCustomClassifierClass): boolean;
 begin
-     Result := (Classifier = TFischerLDAClassifier) or (Classifier = TFischerRobustLDAClassifier) or (Classifier = TFischerRobustExLDAClassifier);
+     Result := (Classifier = TFisherLDAClassifier) or (Classifier = TFisherRobustLDAClassifier) or (Classifier = TFisherRobustExLDAClassifier);
 end;
 
 procedure TFisherBatchLDALearner.SetProperties(
@@ -310,9 +310,9 @@ begin
         raise ELDAException.Create('Error no pca matrix assigned');
 
      case fProps.ClassifierType of
-       ctFast: Result := TFischerLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels);
-       ctRobust: Result := TFischerRobustLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels, 0);
-       ctFastRobust: Result := TFischerRobustExLDAClassifier.Create(fPCA as TFastRobustPCA, ldaV, classCenters, classLabels);
+       ctFast: Result := TFisherLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels);
+       ctRobust: Result := TFisherRobustLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels, 0);
+       ctFastRobust: Result := TFisherRobustExLDAClassifier.Create(fPCA as TFastRobustPCA, ldaV, classCenters, classLabels);
      end;
 
      if fProps.ClassifierType = ctFastRobust then
@@ -351,7 +351,7 @@ begin
           end;
      end;
 
-     TFischerLDAClassifier(Result).SetSigmaDist(distSigmas);
+     TFisherLDAClassifier(Result).SetSigmaDist(distSigmas);
 
      distances.Free;
 end;
@@ -438,7 +438,7 @@ end;
 class function TFisherBatchLDAAugmentedBaseLearner.CanLearnClassifier(
   Classifier: TCustomClassifierClass): boolean;
 begin
-     Result := (Classifier = TFischerLDAClassifier) or (Classifier = TFischerRobustLDAClassifier) or (Classifier = TFischerRobustExLDAClassifier);
+     Result := (Classifier = TFisherLDAClassifier) or (Classifier = TFisherRobustLDAClassifier) or (Classifier = TFisherRobustExLDAClassifier);
 end;
 
 function TFisherBatchLDAAugmentedBaseLearner.DoLearn(
@@ -481,9 +481,9 @@ begin
      // #######################################################
      // #### Create Classifier
      case fProps.ClassifierType of
-       ctFast: Result := TFischerLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels);
-       ctRobust: Result := TFischerRobustLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels, theta);
-       ctFastRobust: Result := TFischerRobustExLDAClassifier.Create(fPCA as TFastRobustPCA, ldaV, classCenters, classLabels);
+       ctFast: Result := TFisherLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels);
+       ctRobust: Result := TFisherRobustLDAClassifier.Create(pcaU, pcaMu, ldaV, classCenters, classLabels, theta);
+       ctFastRobust: Result := TFisherRobustExLDAClassifier.Create(fPCA as TFastRobustPCA, ldaV, classCenters, classLabels);
      end;
 
      if fProps.ClassifierType = ctFastRobust then

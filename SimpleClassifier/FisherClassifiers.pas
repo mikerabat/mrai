@@ -12,10 +12,10 @@
 // #### limitations under the License.
 // ###################################################################
 
-unit FischerClassifiers;
+unit FisherClassifiers;
 
 // #############################################################
-// #### Classifier for the Fischer analysis - both the standard and a robust
+// #### Classifier for the Fisher analysis - both the standard and a robust
 // #### implementations
 // #############################################################
 
@@ -27,7 +27,7 @@ type
   TOnReconstructExample = procedure(Sender : TObject; Reconstructed : TDoubleMatrix) of Object;
 
 type
-  TFischerLDAClassifier = class(TCustomClassifier)
+  TFisherLDAClassifier = class(TCustomClassifier)
   protected
     fU : TDoubleMatrix;
     fmeanU : TDoubleMatrix;
@@ -67,7 +67,7 @@ type
 // same as the above classifier but applies a robust PCA recosntruction.
 // Ideas taken from - Leonardis, Bischof: Robust Recognition using Eigenimages.
 type
-  TFischerRobustLDAProps = record
+  TFisherRobustLDAProps = record
     NumHypothesis : integer;
     Start : Double;              // num Eigenvectors*Start random sampled elements used as initialized pixel set
     Stop : Double;               // num Eigenvectors*Stop elements used as maximum minimal pixel set
@@ -79,7 +79,7 @@ type
   end;
 
 type
-  TFischerRobustLDAClassifier = class(TFischerLDAClassifier)
+  TFisherRobustLDAClassifier = class(TFisherLDAClassifier)
   private
     fBaseArray : TIntegerDynArray;
     fExample : TCustomExample;
@@ -93,12 +93,12 @@ type
   protected
     fTheta : double;
 
-    fProps : TFischerRobustLDAProps;
+    fProps : TFisherRobustLDAProps;
     function ProjectToPcaSpace(Example : TCustomExample) : TDoubleMatrix; override;
   public
     function BackProjectedCenters : TDoubleMatrixDynArr; override;
 
-    procedure SetProps(const Props : TFischerRobustLDAProps);
+    procedure SetProps(const Props : TFisherRobustLDAProps);
 
     constructor Create(U, meanU, V : TDoubleMatrix; const classCenters : TDoubleMatrixDynArr; const classLabels : TIntegerDynArray;
                        const theta : double);
@@ -106,7 +106,7 @@ type
 
 // LDA Classifier based on the Fast Robust PCA algorithm
 type
-  TFischerRobustExLDAClassifier = class(TFischerLDAClassifier)
+  TFisherRobustExLDAClassifier = class(TFisherLDAClassifier)
   private
     fPCA : TFastRobustPCA;
   public
@@ -123,7 +123,7 @@ type
 
 implementation
 
-uses Classes, FischerBatchLDA, Math, LinearAlgebraicEquations, MatrixConst,
+uses Classes, FisherBatchLDA, Math, LinearAlgebraicEquations, MatrixConst,
      BaseMatrixExamples, ImageMatrixConv, Graphics, MathUtilFunc;
 
 const cPCAMatrix = 'U';
@@ -135,9 +135,9 @@ const cPCAMatrix = 'U';
       cClassLabels = 'labels';
       cPCA = 'PCA';
 
-{ TFischerLDAClassifier }
+{ TFisherLDAClassifier }
 
-function TFischerLDAClassifier.Classify(Example: TCustomExample;
+function TFisherLDAClassifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var a : TDoubleMatrix;
 begin
@@ -156,7 +156,7 @@ begin
      confidence := fConfidence;
 end;
 
-constructor TFischerLDAClassifier.Create(U, meanU, V: TDoubleMatrix;
+constructor TFisherLDAClassifier.Create(U, meanU, V: TDoubleMatrix;
   const classCenters: TDoubleMatrixDynArr;
   const classLabels: TIntegerDynArray;
   doTransPoseU : boolean = True);
@@ -176,7 +176,7 @@ begin
      inherited Create;
 end;
 
-procedure TFischerLDAClassifier.DefineProps;
+procedure TFisherLDAClassifier.DefineProps;
 var i : Integer;
 begin
      AddObject('FisherU', fU);
@@ -195,7 +195,7 @@ begin
         AddDoubleArr('SigmaDist', fSigma1Dists);
 end;
 
-function TFischerLDAClassifier.PropTypeOfName(const Name: string): TPropType;
+function TFisherLDAClassifier.PropTypeOfName(const Name: string): TPropType;
 begin
      if (CompareText(Name, 'FisherU') = 0) or (CompareText(Name, 'FisherMean') = 0) or
         (CompareText(Name, 'FisherV') = 0) or (CompareText(Name, cLDAClassCenters) = 0)
@@ -208,7 +208,7 @@ begin
          Result := inherited PropTypeOfName(Name);
 end;
 
-destructor TFischerLDAClassifier.Destroy;
+destructor TFisherLDAClassifier.Destroy;
 var i : Integer;
 begin
      fU.Free;
@@ -221,7 +221,7 @@ begin
      inherited;
 end;
 
-procedure TFischerLDAClassifier.OnLoadBeginList(const Name: String;
+procedure TFisherLDAClassifier.OnLoadBeginList(const Name: String;
   count: integer);
 begin
      fActReaderIndex := 0;
@@ -235,13 +235,13 @@ begin
          inherited;
 end;
 
-procedure TFischerLDAClassifier.OnLoadEndList;
+procedure TFisherLDAClassifier.OnLoadEndList;
 begin
      fIsInList := False;
      assert(fActReaderIndex = Length(fClassCenters), 'Error the object could not be read');
 end;
 
-procedure TFischerLDAClassifier.OnLoadDoubleArr(const Name: String;
+procedure TFisherLDAClassifier.OnLoadDoubleArr(const Name: String;
   const Value: TDoubleDynArray);
 begin
      if CompareText(Name, 'SigmaDist') = 0
@@ -251,7 +251,7 @@ begin
          inherited;
 end;
 
-procedure TFischerLDAClassifier.OnLoadIntArr(const Name: String;
+procedure TFisherLDAClassifier.OnLoadIntArr(const Name: String;
   const Value: TIntegerDynArray);
 begin
      if CompareText(Name, 'FisherLabels') = 0
@@ -261,7 +261,7 @@ begin
          inherited;
 end;
 
-function TFischerLDAClassifier.OnLoadObject(const Name: String;
+function TFisherLDAClassifier.OnLoadObject(const Name: String;
   Obj: TBaseMathPersistence): boolean;
 begin
      Result := True;
@@ -279,7 +279,7 @@ begin
          Result := inherited OnLoadObject(Name, Obj);
 end;
 
-function TFischerLDAClassifier.OnLoadObject(Obj: TBaseMathPersistence): boolean;
+function TFisherLDAClassifier.OnLoadObject(Obj: TBaseMathPersistence): boolean;
 begin
      Result := True;
      if fIsInList
@@ -291,7 +291,7 @@ begin
      inc(fActReaderIndex);
 end;
 
-function TFischerLDAClassifier.ProjectToLDASpaceAndClassify(
+function TFisherLDAClassifier.ProjectToLDASpaceAndClassify(
   a: TDoubleMatrix): integer;
 var g : IMatrix;
     distances : TDoubleDynArray;
@@ -342,7 +342,7 @@ begin
         fConfidence := minDist;
 end;
 
-function TFischerLDAClassifier.ProjectTOPcaSpace(Example: TCustomExample): TDoubleMatrix;
+function TFisherLDAClassifier.ProjectTOPcaSpace(Example: TCustomExample): TDoubleMatrix;
 var x0 : IMatrix;
     i : integer;
     rec : TDoubleMatrix;
@@ -370,7 +370,7 @@ begin
      end;
 end;
 
-function TFischerLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
+function TFisherLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
 var i : integer;
     vt : IMatrix;
     Ut : IMatrix;
@@ -393,9 +393,9 @@ begin
      end;
 end;
 
-{ TFischerAugmentedLDAClassifier }
+{ TFisherAugmentedLDAClassifier }
 
-function TFischerRobustLDAClassifier.AccurateFitHypot(
+function TFisherRobustLDAClassifier.AccurateFitHypot(
   a: TDoubleMatrix): TDoubleMatrix;
 var rec : TDoubleMatrix;
     testExmpl : TDoubleMatrix;
@@ -467,7 +467,7 @@ begin
      end;
 end;
 
-function TFischerRobustLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
+function TFisherRobustLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
 var i : integer;
     vt : TDoubleMatrix;
     a : TDoubleMatrix;
@@ -492,7 +492,7 @@ begin
      end;
 end;
 
-constructor TFischerRobustLDAClassifier.Create(U, meanU, V: TDoubleMatrix;
+constructor TFisherRobustLDAClassifier.Create(U, meanU, V: TDoubleMatrix;
   const classCenters: TDoubleMatrixDynArr; const classLabels: TIntegerDynArray;
   const theta: double);
 begin
@@ -509,14 +509,14 @@ begin
      fProps.maxIter := 3;
 end;
 
-function TFischerRobustLDAClassifier.GenerateHypothesis: TDoubleMatrix;
+function TFisherRobustLDAClassifier.GenerateHypothesis: TDoubleMatrix;
 var elements : TIntegerDynArray;
 begin
      elements := RandomSampleFeatures(Min(fExample.FeatureVec.FeatureVecLen, Trunc(fU.Width*fProps.Start)));
      Result := RobustAlphaTrimmedLinEQSolver(elements);
 end;
 
-function TFischerRobustLDAClassifier.ProjectTOPcaSpace(
+function TFisherRobustLDAClassifier.ProjectTOPcaSpace(
   Example: TCustomExample): TDoubleMatrix;
 var i : integer;
     hypothesis : TDoubleMatrixDynArr;
@@ -576,7 +576,7 @@ begin
 end;
 
 
-function TFischerRobustLDAClassifier.RandomSampleFeatures(
+function TFisherRobustLDAClassifier.RandomSampleFeatures(
   const NumElem: integer): TIntegerDynArray;
 var i : integer;
     len : integer;
@@ -610,7 +610,7 @@ begin
          Result[i] := random(len);
 end;
 
-function TFischerRobustLDAClassifier.RobustAlphaTrimmedLinEQSolver(
+function TFisherRobustLDAClassifier.RobustAlphaTrimmedLinEQSolver(
   var Elements: TIntegerDynArray): TDoubleMatrix;
 var numElements : integer;
     A : TDoubleMatrix;
@@ -720,14 +720,14 @@ begin
      end;
 end;
 
-procedure TFischerRobustLDAClassifier.SetProps(
-  const Props: TFischerRobustLDAProps);
+procedure TFisherRobustLDAClassifier.SetProps(
+  const Props: TFisherRobustLDAProps);
 begin
      fProps := Props;
 end;
 
 
-function TFischerRobustLDAClassifier.SimpleMDL(const hypothesis: TDoubleMatrixDynArr): integer;
+function TFisherRobustLDAClassifier.SimpleMDL(const hypothesis: TDoubleMatrixDynArr): integer;
 var i, y : integer;
     exmplMeanReduced : TDoubleMatrix;
     maxMDL : double;
@@ -784,15 +784,15 @@ begin
      end;
 end;
 
-procedure TFischerLDAClassifier.SetSigmaDist(
+procedure TFisherLDAClassifier.SetSigmaDist(
   const classSigmaDist: TDoubleDynArray);
 begin
      fSigma1Dists := classSigmaDist;
 end;
 
-{ TFischerRobustExLDAClassifier }
+{ TFisherRobustExLDAClassifier }
 
-function TFischerRobustExLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
+function TFisherRobustExLDAClassifier.BackProjectedCenters: TDoubleMatrixDynArr;
 var i : integer;
     vt : TDoubleMatrix;
     a : TDoubleMatrix;
@@ -817,7 +817,7 @@ begin
 end;
 
 
-function TFischerRobustExLDAClassifier.Classify(Example: TCustomExample;
+function TFisherRobustExLDAClassifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var exmpl : TDoubleMatrix;
     a : TDoubleMatrix;
@@ -866,7 +866,7 @@ begin
      end;
 end;
 
-constructor TFischerRobustExLDAClassifier.Create(PCA: TFastRobustPCA;
+constructor TFisherRobustExLDAClassifier.Create(PCA: TFastRobustPCA;
   V: TDoubleMatrix; const classCenters: TDoubleMatrixDynArr;
   const classLabels: TIntegerDynArray);
 begin
@@ -876,14 +876,14 @@ begin
      fClassLabels := classLabels;     
 end;
 
-procedure TFischerRobustExLDAClassifier.DefineProps;
+procedure TFisherRobustExLDAClassifier.DefineProps;
 begin
      inherited;
 
      AddObject(cLDARobustPCA, fPCA);
 end;
 
-function TFischerRobustExLDAClassifier.PropTypeOfName(
+function TFisherRobustExLDAClassifier.PropTypeOfName(
   const Name: string): TPropType;
 begin
      if CompareText(Name, cLDARobustPCA) = 0
@@ -893,14 +893,14 @@ begin
          Result := inherited PropTypeOfName(Name);
 end;
 
-destructor TFischerRobustExLDAClassifier.Destroy;
+destructor TFisherRobustExLDAClassifier.Destroy;
 begin
      fPCA.Free;
 
      inherited;
 end;
 
-function TFischerRobustExLDAClassifier.OnLoadObject(const Name: String;
+function TFisherRobustExLDAClassifier.OnLoadObject(const Name: String;
   Obj: TBaseMathPersistence): boolean;
 begin
      Result := True;
@@ -913,9 +913,9 @@ begin
 end;
 
 initialization
-  RegisterMathIO(TFischerLDAClassifier);
-  RegisterMathIO(TFischerRobustLDAClassifier);
-  RegisterMathIO(TFischerRobustExLDAClassifier);
+  RegisterMathIO(TFisherLDAClassifier);
+  RegisterMathIO(TFisherRobustLDAClassifier);
+  RegisterMathIO(TFisherRobustExLDAClassifier);
 
 
 end.

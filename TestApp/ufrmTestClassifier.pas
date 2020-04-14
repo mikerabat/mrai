@@ -35,14 +35,14 @@ type
     butBagging: TButton;
     Button6: TButton;
     grpFaces: TGroupBox;
-    butImgRobustFischerLDA: TButton;
+    butImgRobustFisherLDA: TButton;
     Label2: TLabel;
     lblUnseen: TLabel;
     lblOrigLabels: TLabel;
     Label3: TLabel;
     chkBlendPart: TCheckBox;
     rbFisherLDA: TRadioButton;
-    rbRobustFischer: TRadioButton;
+    rbRobustFisher: TRadioButton;
     rbFastRobustFisher: TRadioButton;
     Button8: TButton;
     butSVM: TButton;
@@ -73,7 +73,7 @@ type
     procedure butBaggingClick(Sender: TObject);
     procedure Button6Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
-    procedure butImgRobustFischerLDAClick(Sender: TObject);
+    procedure butImgRobustFisherLDAClick(Sender: TObject);
     procedure butSVMClick(Sender: TObject);
     procedure butIntImgTestClick(Sender: TObject);
     procedure btnFaceBoostingClick(Sender: TObject);
@@ -121,9 +121,9 @@ var
 implementation
 
 uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
-     CustomBooster, Bagging, EnsembleClassifier, FischerBatchLDA, FischerClassifiers,
+     CustomBooster, Bagging, EnsembleClassifier, FisherBatchLDA, FisherClassifiers,
      ImageDataSet, ImageMatrixConv, jpeg, IncrementalImageDataSet,
-     IncrementalFischerLDA, FischerIncrementalClassifiers, BaseIncrementalLearner,
+     IncrementalFisherLDA, FisherIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
      BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF, 
      kmeans, NeuralNetwork, JSONReaderWriter, MatrixASMStubSwitch;
@@ -479,7 +479,7 @@ begin
           if rbFisherLDA.Checked
           then
               props.ClassifierType := ctFast
-          else if rbRobustFischer.Checked
+          else if rbRobustFisher.Checked
           then
               props.ClassifierType := ctRobust
           else
@@ -708,9 +708,9 @@ begin
      TestLearnError;
 end;
 
-procedure TfrmClassifierTest.butImgRobustFischerLDAClick(Sender: TObject);
+procedure TfrmClassifierTest.butImgRobustFisherLDAClick(Sender: TObject);
 var props : TFisherAugmentedBaseProps;
-    clProps : TFischerRobustLDAProps;
+    clProps : TFisherRobustLDAProps;
     examples : TCustomIncrementalLearnerExampleList;
 begin
      if not DirectoryExists('.\Faces\') then
@@ -725,7 +725,7 @@ begin
      if rbFisherLDA.Checked
      then
          props.ClassifierType := ctFast
-     else if rbRobustFischer.Checked
+     else if rbRobustFisher.Checked
      then
          props.ClassifierType := ctRobust
      else
@@ -739,7 +739,7 @@ begin
      props.RobustPCAProps.ReductionFactor := 0.75;
      props.RobustPCAProps.SubSpaceCutEPS := 0.9;
 
-     if Sender = butImgRobustFischerLDA then
+     if Sender = butImgRobustFisherLDA then
      begin
           fExamples := TImageMatrixExampleList.Create('.\Faces\', ctGrayScale);
 
@@ -757,7 +757,7 @@ begin
      begin
           Examples := TIncrementalImageExampleList.Create('.\Faces\', ctGrayScale, 0.2, lsOneByOne);
           try
-             with TFischerIncrementalLDA.Create do
+             with TFisherIncrementalLDA.Create do
              try
                 SetProperties(props);
 
@@ -774,7 +774,7 @@ begin
           fExamples := TImageMatrixExampleList.Create('.\Faces\', ctGrayScale);
      end;
 
-     if fClassifier is TFischerRobustLDAClassifier then
+     if fClassifier is TFisherRobustLDAClassifier then
      begin
           clProps.NumHypothesis := 13;
           clProps.Start := 50;
@@ -785,7 +785,7 @@ begin
           clProps.maxIter := 3;
           clProps.theta := 60;
 
-          TFischerRobustLDAClassifier(fClassifier).SetProps(clProps);
+          TFisherRobustLDAClassifier(fClassifier).SetProps(clProps);
      end;
 
      TestUnseenImages;
@@ -1366,12 +1366,12 @@ begin
           if fClassifier is TC45Classifier then
              PaintC45(TC45CLHack(fClassifier));
 
-          if cl is TFischerLDAClassifier then
+          if cl is TFisherLDAClassifier then
           begin
                PaintBox1.Canvas.Pen.Color := clMaroon;
                PaintBox1.Canvas.Brush.Style := bsClear;
 
-               centers := TFischerLDAClassifier(cl).BackProjectedCenters;
+               centers := TFisherLDAClassifier(cl).BackProjectedCenters;
                try
                   for i := 0 to length(centers) - 1 do
                   begin
@@ -1436,13 +1436,13 @@ var faces : TDoubleMatrixDynArr;
 begin
      // #################################################
      // #### Paint backprojected face class centers
-     if (( (fClassifier is TFischerLDAClassifier) ) or ((fClassifier is TIncrementalFischerLDAClassifier))) and not Assigned(fFace1) then
+     if (( (fClassifier is TFisherLDAClassifier) ) or ((fClassifier is TIncrementalFisherLDAClassifier))) and not Assigned(fFace1) then
      begin
-          if (fClassifier is TFischerLDAClassifier) 
+          if (fClassifier is TFisherLDAClassifier) 
           then
-              faces := (fClassifier as TFischerLDAClassifier).BackProjectedCenters
+              faces := (fClassifier as TFisherLDAClassifier).BackProjectedCenters
           else
-              faces := (fClassifier as TIncrementalFischerLDAClassifier).BackProjectedCenters;
+              faces := (fClassifier as TIncrementalFisherLDAClassifier).BackProjectedCenters;
 
           assert(Length(faces) = 2, 'Error only 2 faces expected');
 
@@ -1560,11 +1560,11 @@ begin
 
                 exmpl := TMatrixExample.Create(img, True);
                 try
-                   if fClassifier is TFischerLDAClassifier then
-                      TFischerLDAClassifier(fClassifier).OnReconstructFace := OnPCAReconstruct;
+                   if fClassifier is TFisherLDAClassifier then
+                      TFisherLDAClassifier(fClassifier).OnReconstructFace := OnPCAReconstruct;
 
-                   if fClassifier is TIncrementalFischerLDAClassifier then
-                      TIncrementalFischerLDAClassifier(fClassifier).OnReconstructFace := OnPCAReconstruct;
+                   if fClassifier is TIncrementalFisherLDAClassifier then
+                      TIncrementalFisherLDAClassifier(fClassifier).OnReconstructFace := OnPCAReconstruct;
                    
                    classVal := fClassifier.Classify(exmpl);
 
@@ -1580,8 +1580,8 @@ begin
              s := Format('.\faces\Face%d_TestImg.jpg', [i]);
         end;
 
-        if fClassifier is TFischerLDAClassifier then
-           TFischerLDAClassifier(fClassifier).OnReconstructFace := nil;
+        if fClassifier is TFisherLDAClassifier then
+           TFisherLDAClassifier(fClassifier).OnReconstructFace := nil;
         lblUnseen.Caption := labels.CommaText;
      finally
             labels.Free;

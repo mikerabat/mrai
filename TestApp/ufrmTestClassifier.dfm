@@ -246,14 +246,14 @@ object frmClassifierTest: TfrmClassifierTest
       Height = 16
       Caption = 'FaceDB'
     end
-    object butImgRobustFischerLDA: TButton
-      Left = 16
+    object butImgRobustFisherLDA: TButton
+      Left = 15
       Top = 140
       Width = 281
       Height = 25
-      Caption = 'Robust Fischer LDA - Augmented Basis'
+      Caption = 'Robust Fisher LDA - Augmented Basis'
       TabOrder = 0
-      OnClick = butImgRobustFischerLDAClick
+      OnClick = butImgRobustFisherLDAClick
     end
     object chkBlendPart: TCheckBox
       Left = 168
@@ -273,7 +273,7 @@ object frmClassifierTest: TfrmClassifierTest
       TabOrder = 2
       TabStop = True
     end
-    object rbRobustFischer: TRadioButton
+    object rbRobustFisher: TRadioButton
       Left = 24
       Top = 99
       Width = 113
@@ -296,7 +296,7 @@ object frmClassifierTest: TfrmClassifierTest
       Height = 25
       Caption = 'Incremental Fischer LDA'
       TabOrder = 5
-      OnClick = butImgRobustFischerLDAClick
+      OnClick = butImgRobustFisherLDAClick
     end
     object edFaceDB: TEdit
       Left = 51

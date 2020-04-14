@@ -15,13 +15,12 @@
 program TestClassifier;
 
 uses
+  madExcept,
   Forms,
   ufrmTestClassifier in 'ufrmTestClassifier.pas' {frmClassifierTest},
   ImageDataSet in '..\DataIO\ImageDataSet.pas',
-  FischerBatchLDA in '..\SimpleClassifier\FischerBatchLDA.pas',
-  FischerClassifiers in '..\SimpleClassifier\FischerClassifiers.pas',
-  IncrementalFischerLDA in '..\IncrementalClassifier\IncrementalFischerLDA.pas',
-  FischerIncrementalClassifiers in '..\IncrementalClassifier\FischerIncrementalClassifiers.pas',
+  IncrementalFisherLDA in '..\IncrementalClassifier\IncrementalFisherLDA.pas',
+  FisherIncrementalClassifiers in '..\IncrementalClassifier\FisherIncrementalClassifiers.pas',
   AdaBoost in '..\EnsembleClassifiers\AdaBoost.pas',
   Bagging in '..\EnsembleClassifiers\Bagging.pas',
   CustomBooster in '..\EnsembleClassifiers\CustomBooster.pas',
@@ -47,7 +46,9 @@ uses
   EnsembleClassifier in '..\EnsembleClassifier.pas',
   RBF in '..\SimpleClassifier\RBF.pas',
   kmeans in '..\SimpleClassifier\kmeans.pas',
-  NeuralNetwork in '..\SimpleClassifier\NeuralNetwork.pas';
+  NeuralNetwork in '..\SimpleClassifier\NeuralNetwork.pas',
+  FisherBatchLDA in '..\SimpleClassifier\FisherBatchLDA.pas',
+  FisherClassifiers in '..\SimpleClassifier\FisherClassifiers.pas';
 
 {$R *.res}
 

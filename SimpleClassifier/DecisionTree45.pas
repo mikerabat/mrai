@@ -28,6 +28,7 @@ type
 
 type
   TC45Props = record
+    allowFeatureMultiUse : boolean;     // allows a feature to be used in more than one node
     case LearnType : T45TreeLearnType of
       ltMaxDepth: (MaxDepth : integer);
       ltPrune: ( UseValidationSet : boolean; ValidationsetSize : double);
@@ -80,6 +81,7 @@ type
   private
     fProps : TC45Props;
     fLastFeatureIdx : integer;
+    fUsedFeatures : TBooleanDynArray;
 
     procedure PruneTree(tree : TCustomTreeItem; var dataSetIdx : TIntegerDynArray);
     function SplitByProperty(const Weights : Array of double; var dataSetIdx : TIntegerDynArray; curDepth : integer) : TCustomTreeItem;
@@ -201,13 +203,16 @@ begin
      begin
           for k := 0 to numClasses - 1 do
           begin
-               if DataSet[DataSetIdx[i]].ClassVal = classes[k]
-               then
-                   sumRight[k] := sumRight[k] + Weights[dataSetIdx[i]]
+               if DataSet[DataSetIdx[i]].ClassVal = classes[k] then
+               begin
+                    sumRight[k] := sumRight[k] + Weights[dataSetIdx[i]];
+                    break;
+               end
                else if classes[k] = 0 then
                begin
                     sumRight[k] := Weights[dataSetIdx[i]];
                     classes[k] := DataSet[DataSetIdx[i]].ClassVal;
+                    break;
                end;
           end;
      end;
@@ -247,7 +252,7 @@ begin
           entropyGain := setEntropy - entropy;
 
 
-          if entropyGain > maxEntropy then
+          if (entropyGain > maxEntropy) and (DataSet[DataSetIdx[sortIdx[i]]].FeatureVec[FeatureIdx] <> DataSet[DataSetIdx[sortIdx[i + 1]]].FeatureVec[FeatureIdx])  then
           begin
                numElements := i + 1;
                maxEntropy := entropyGain;
@@ -275,6 +280,9 @@ var tree : TCustomTreeItem;
     trainLen : integer;
 begin
      SetLength(trainingIdx, Length(weights));
+     SetLength(fUsedFeatures, DataSet.Example[0].FeatureVec.FeatureVecLen);
+     for i := 0 to Length(fUsedFeatures) - 1 do
+         fUsedFeatures[i] := False;
 
      for i := 0 to Length(weights) - 1 do
          trainingIdx[i] := i;
@@ -466,6 +474,36 @@ var i, j : integer;
     tempD : double;
     tempI : integer;
     overallNumExamples : integer;
+function SelectLeaveByWeights : TTreeLeave;
+var i : integer;
+begin
+     // assign a leave node to the class with the best performance
+     nodeData := T45NodeData.Create;
+     nodeData.NumClasses := 1;
+     nodeData.Classes := Copy(Classes, 0, NumClasses);
+     nodeData.WeightedSums := Copy(WeightedNumElements, 0, NumClasses);
+     nodeData.FeatureSplitIndex := -1;
+     nodeData.SplitVal := 0;
+     nodeData.NumExamples := overallNumExamples;
+
+     for i := 1 to numClasses - 1 do
+     begin
+          if nodeData.WeightedSums[i] > nodeData.WeightedSums[0] then
+          begin
+               tempi := nodeData.Classes[i];
+               nodeData.Classes[i] := nodeData.Classes[0];
+               nodeData.Classes[0] := tempi;
+
+               tempD := nodeData.WeightedSums[i];
+               nodeData.WeightedSums[i] := nodeData.WeightedSums[0];
+               nodeData.WeightedSums[0] := tempD;
+          end;
+     end;
+
+     Result := TTreeLeave.Create;
+     Result.TreeData := nodeData;
+end;
+     
 begin
      assert(Length(dataSetIdx) > 0, 'Error empty dataset for splitting');
 
@@ -518,39 +556,8 @@ begin
      // check the max depth property:
      if (fProps.LearnType = ltMaxDepth) and (curDepth = fProps.MaxDepth) then
      begin
-          // calculate overall entropy or "impurity" of that node
-          entropy := 0;
-          for i := 0 to numClasses - 1 do
-          begin
-               prob := weightedNumElements[i]/(overallWeight + eps);
-               entropy := entropy - prob*Log2(prob);
-          end;
-
-          // assign a leave node to the class with the best performance
-          nodeData := T45NodeData.Create;
-          nodeData.NumClasses := 1;
-          nodeData.Classes := Copy(Classes, 0, NumClasses);
-          nodeData.WeightedSums := Copy(WeightedNumElements, 0, NumClasses);
-          nodeData.FeatureSplitIndex := -1;
-          nodeData.SplitVal := 0;
-          nodeData.NumExamples := overallNumExamples;
-
-          for i := 1 to numClasses - 1 do
-          begin
-               if nodeData.WeightedSums[i] > nodeData.WeightedSums[0] then
-               begin
-                    tempi := nodeData.Classes[i];
-                    nodeData.Classes[i] := nodeData.Classes[0];
-                    nodeData.Classes[0] := tempi;
-
-                    tempD := nodeData.WeightedSums[i];
-                    nodeData.WeightedSums[i] := nodeData.WeightedSums[0];
-                    nodeData.WeightedSums[0] := tempD;
-               end;
-          end;
-
-          Result := TTreeLeave.Create;
-          Result.TreeData := nodeData;
+          Result := SelectLeaveByWeights;
+          
           exit;
      end;
 
@@ -591,6 +598,9 @@ begin
 
           for i := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
           begin
+               if (i = fLastFeatureIdx) or (not fProps.allowFeatureMultiUse and fUsedFeatures[i]) then
+                  continue;
+               
                gain := CalculateGain(Weights, dataSetIdx, i, splitVal, entropy, numClasses, numElements);
 
                if (gain > maxGain) or ((gain = maxGain) and (i <> fLastFeatureIdx)) then
@@ -612,44 +622,64 @@ begin
           for i := 0 to Length(dataSetIdx) - 1 do
           begin
                if DataSet[dataSetIdx[i]].FeatureVec[maxSplitFeatureIdx] < maxSplitVal then
-               begin
+               begin      
+                    if length( leftData ) <= leftIdx then
+                       SetLength(leftData, Min( Length(leftData) + 1024, 2*Length(leftData)) );      
                     leftData[leftIdx] := dataSetIdx[i];
                     inc(leftIdx);
                end
                else
                begin
+                    if length( rightData ) <= rightIdx then
+                       SetLength(rightData, Min( Length(rightData) + 1024, 2*Length(rightData)) );
                     rightData[rightIdx] := dataSetIdx[i];
                     inc(rightIdx);
                end;
           end;
 
+          SetLength(rightData, rightIdx);
+          SetLength(leftData, leftIdx);
+
           // release memory, we don't want to use O(n^2) memory consumption (max O(2n)
           dataSetIdx := nil;
 
-          // ##########################################################
-          // #### Create result
-          fLastFeatureIdx := maxSplitFeatureIdx;
+          // ###########################################
+          // #### Check if there is a gain at all (or we can split at least one element)
+          // if not then create a leave
+          if (maxGain = -MaxDouble) or (leftData = nil) or (rightData = nil) then
+          begin
+               // get the class with the most elements -> this is then the result
+               Result := SelectLeaveByWeights; 
+               exit;
+          end
+          else
+          begin
+               // ##########################################################
+               // #### Create result
+               fLastFeatureIdx := maxSplitFeatureIdx;
+               fUsedFeatures[maxSplitFeatureIdx] := True;
 
-          Result := TTreeNode.Create;
-          TTreeNode(Result).LeftItem := SplitByProperty(weights, leftData, curDepth + 1);
-          TTreeNode(Result).RightItem := SplitByProperty(weights, rightData, curDepth + 1);
+               Result := TTreeNode.Create;
+               TTreeNode(Result).LeftItem := SplitByProperty(weights, leftData, curDepth + 1);
+               TTreeNode(Result).RightItem := SplitByProperty(weights, rightData, curDepth + 1);
 
-          nodeData := T45NodeData.Create;
-          nodeData.NumClasses := numClasses;
-          nodeData.Classes := Copy(Classes, 1, NumClasses);
-          nodeData.WeightedSums := Copy(WeightedNumElements, 1, NumClasses);
-          nodeData.FeatureSplitIndex := maxSplitFeatureIdx;
-          nodeData.SplitVal := maxSplitVal;
-          nodeData.NumExamples := overallNumExamples;
+               nodeData := T45NodeData.Create;
+               nodeData.NumClasses := numClasses;
+               nodeData.Classes := Copy(Classes, 1, NumClasses);
+               nodeData.WeightedSums := Copy(WeightedNumElements, 1, NumClasses);
+               nodeData.FeatureSplitIndex := maxSplitFeatureIdx;
+               nodeData.SplitVal := maxSplitVal;
+               nodeData.NumExamples := overallNumExamples;
 
-          Result.TreeData := nodeData;
+               Result.TreeData := nodeData;
 
-          // create array again
-          SetLength(dataSetIdx, Length(leftData) + Length(rightData));
-          if Length(leftData) > 0 then
-             Move(leftData[0], dataSetIdx[0], sizeof(dataSetIdx[0])*Length(LeftData));
-          if Length(rightData) > 0 then
-             Move(rightData[0], dataSetIdx[Length(leftData)], sizeof(dataSetIdx[0])*Length(rightData));
+               // create array again
+               SetLength(dataSetIdx, Length(leftData) + Length(rightData));
+               if Length(leftData) > 0 then
+                  Move(leftData[0], dataSetIdx[0], sizeof(dataSetIdx[0])*Length(LeftData));
+               if Length(rightData) > 0 then
+                  Move(rightData[0], dataSetIdx[Length(leftData)], sizeof(dataSetIdx[0])*Length(rightData));
+          end;
      end;
 end;
 

@@ -12,7 +12,7 @@
 // #### limitations under the License.
 // ###################################################################
 
-unit IncrementalFischerLDA;
+unit IncrementalFisherLDA;
 
 // #####################################################
 // #### Incremental LDA classification
@@ -21,20 +21,20 @@ unit IncrementalFischerLDA;
 interface
 
 uses SysUtils, Classes, Types, BaseClassifier, BaseIncrementalLearner,
-     FischerIncrementalClassifiers, FischerBatchLDA, Matrix, IncrementalPCA;
+     FisherIncrementalClassifiers, FisherBatchLDA, Matrix, IncrementalPCA;
 
 // #####################################################
 // #### Incremental LDA algorithm
 // Phd: Incremental, Robust, and Efficient Linear Discriminant Analysis Learning, page 39
 // Augmented subspace learning without any vector reduction
 type
-  TFischerIncrementalLDA = class(TCustomIncrementalWeightedLearner)
+  TFisherIncrementalLDA = class(TCustomIncrementalWeightedLearner)
   private
     fProps : TFisherAugmentedBaseProps;
-    fClassifier : TIncrementalFischerLDAClassifier;
+    fClassifier : TIncrementalFisherLDAClassifier;
     function ExtractMatrixData(Examples : TCustomLearnerExampleList; var ownsMatrix: boolean): TDoubleMatrix;
-    procedure ReduceAndAugmentBase(ldaClassifier : TIncrementalFischerLDAClassifier);
-    procedure LDAOnA(ldaClassifier : TIncrementalFischerLDAClassifier; numClasses : integer; const classIdx : TIntIntArray; const classLabels : TIntegerDynArray);
+    procedure ReduceAndAugmentBase(ldaClassifier : TIncrementalFisherLDAClassifier);
+    procedure LDAOnA(ldaClassifier : TIncrementalFisherLDAClassifier; numClasses : integer; const classIdx : TIntIntArray; const classLabels : TIntegerDynArray);
   protected
     function GetClassifier : TCustomClassifier; override;
   public
@@ -49,18 +49,18 @@ type
 
 implementation
 
-uses FischerClassifiers, BaseMatrixExamples, math, LinearAlgebraicEquations, MatrixConst;
+uses FisherClassifiers, BaseMatrixExamples, math, LinearAlgebraicEquations, MatrixConst;
 
 // used to shortcut the copying process
 type
-  TFischerLDAClassifierCrack = class(TFischerLDAClassifier);
+  TFisherLDAClassifierCrack = class(TFisherLDAClassifier);
 
-{ TFischerIncrementalLDA }
+{ TFisherIncrementalLDA }
 
-function TFischerIncrementalLDA.GetClassifier: TCustomClassifier;
+function TFisherIncrementalLDA.GetClassifier: TCustomClassifier;
 procedure SetupLDAClassifier;
 begin
-     fClassifier := TIncrementalFischerLDAClassifier.Create;
+     fClassifier := TIncrementalFisherLDAClassifier.Create;
      TIncrementalPCA(fClassifier.PCAData).NumEigenvectorsToKeep := fProps.NumLDAVectorsToKeep + 2;
 end;
 procedure SetupRobustLDAClassifier;
@@ -82,7 +82,7 @@ begin
      Result := fClassifier;
 end;
 
-procedure TFischerIncrementalLDA.LDAOnA(ldaClassifier : TIncrementalFischerLDAClassifier; numClasses : integer;
+procedure TFisherIncrementalLDA.LDAOnA(ldaClassifier : TIncrementalFisherLDAClassifier; numClasses : integer;
     const classIdx : TIntIntArray; const classLabels : TIntegerDynArray);
 var x, y : integer;
     mu : TDoubleMatrix;
@@ -240,7 +240,7 @@ begin
      end;
 end;
 
-procedure TFischerIncrementalLDA.ReduceAndAugmentBase(ldaClassifier : TIncrementalFischerLDAClassifier);
+procedure TFisherIncrementalLDA.ReduceAndAugmentBase(ldaClassifier : TIncrementalFisherLDAClassifier);
 var vhat : TDoubleMatrix;
     U, V, W : TDoubleMatrix;
     M : TDoubleMatrix;
@@ -327,15 +327,15 @@ begin
      end;
 end;
 
-procedure TFischerIncrementalLDA.OnLoadClass(Sender: TObject;
+procedure TFisherIncrementalLDA.OnLoadClass(Sender: TObject;
   Examples: TCustomLearnerExampleList; const Weights: TDoubleDynArray);
 begin
      raise EAbstractError.Create('Not yet implemented');
 end;
 
-procedure TFischerIncrementalLDA.OnLoadExample(Sender: TObject;
+procedure TFisherIncrementalLDA.OnLoadExample(Sender: TObject;
   Example: TCustomLearnerExample; const weight: double);
-var ldaClassifier : TIncrementalFischerLDAClassifier;
+var ldaClassifier : TIncrementalFisherLDAClassifier;
     mtx : TDoubleMatrix;
     i : Integer;
     numClasses : integer;
@@ -380,13 +380,13 @@ begin
      LDAOnA(fClassifier, numClasses, classIdx, classLabels);
 end;
 
-class function TFischerIncrementalLDA.CanLearnClassifier(
+class function TFisherIncrementalLDA.CanLearnClassifier(
   Classifier: TCustomClassifierClass): boolean;
 begin
-     Result := (Classifier = TIncrementalFischerLDAClassifier) or (Classifier = TFastRobustIncrementalLDAClassifier);
+     Result := (Classifier = TIncrementalFisherLDAClassifier) or (Classifier = TFastRobustIncrementalLDAClassifier);
 end;
 
-function TFischerIncrementalLDA.ExtractMatrixData(Examples : TCustomLearnerExampleList; var ownsMatrix: boolean): TDoubleMatrix;
+function TFisherIncrementalLDA.ExtractMatrixData(Examples : TCustomLearnerExampleList; var ownsMatrix: boolean): TDoubleMatrix;
 var x, y : integer;
 begin
      if Examples is TMatrixLearnerExampleList
@@ -405,7 +405,7 @@ begin
 end;
 
 
-procedure TFischerIncrementalLDA.OnLoadInitComplete(Sender: TObject;
+procedure TFisherIncrementalLDA.OnLoadInitComplete(Sender: TObject;
   Examples: TCustomLearnerExampleList; const Weights: TDoubleDynArray);
 var matrixData : TDoubleMatrix;
     y : integer;
@@ -413,7 +413,7 @@ var matrixData : TDoubleMatrix;
     Sb, Sw : TDoubleMatrix;
     U, S, V : TDoubleMatrix;
     ownsMatrix : boolean;
-    ldaClassifier : TIncrementalFischerLDAClassifier;
+    ldaClassifier : TIncrementalFisherLDAClassifier;
     classCenters : TDoubleMatrixDynArr;
     numClasses : integer;
     classIdx : TIntIntArray;
@@ -424,7 +424,7 @@ begin
      // todo: introduce example weighting
      matrixData := nil;
 
-     ldaClassifier := Classifier as TIncrementalFischerLDAClassifier;
+     ldaClassifier := Classifier as TIncrementalFisherLDAClassifier;
 
      SetLength(classLabelIdx, Examples.Count);
      for i := 0 to Examples.Count - 1 do
@@ -474,7 +474,7 @@ begin
      end;
 end;
 
-procedure TFischerIncrementalLDA.SetProperties(
+procedure TFisherIncrementalLDA.SetProperties(
   const props: TFisherAugmentedBaseProps);
 begin
      fProps := props;
