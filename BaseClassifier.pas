@@ -90,7 +90,7 @@ type
     function InternalRandomDataSet(LearningSet : TCustomLearnerExampleList; StartIdx, EndIdx : integer; numElements : integer) : TCustomLearnerExampleList;
     procedure SetRandomAlg(const Value: TRandomAlgorithm);
 
-    function GetExample(index : integer) : TCustomLearnerExample; virtual;
+    function GetExample(index : integer) : TCustomLearnerExample; 
     procedure SetExample(index : integer; Value : TCustomLearnerExample);
   public
     procedure CreateTrainAndValidationSet(validationDataSetPerc : integer; out trainSet, validationSet : TCustomLearnerExampleList);
@@ -146,15 +146,18 @@ type
 type
   TCustomWeightedLearner = class(TCommonLearnerProps)
   private
-    fDataSet : TCustomLearnerExampleList; // by reference
+    fDataSet : TCustomLearnerExampleList;
   protected
     property DataSet : TCustomLearnerExampleList read fDataSet;
     function DoLearn(const weights : Array of double) : TCustomClassifier; virtual; abstract;
 
     // returns the indices of an sorted array of features starting from the lowest
-    function CalcSortIdx(featureIdx : integer) : TIntegerDynArray; overload;
-    function CalcSortIdx(const dataSetIdx : TIntegerDynArray; featureIdx : integer) : TIntegerDynArray; overload;
+    function CalcSortIdx(featureIdx : integer) : TIntegerDynArray; overload;  
+    function CalcSortIdx(const dataSetIdx : TIntegerDynArray; featureIdx : integer) : TIntegerDynArray; overload; 
 
+    function CountSortIdx(const dataSetIdx: TIntegerDynArray; featureIdx: integer): TIntegerDynArray; 
+
+    procedure IdxCountSort(const Values: TIntegerDynArray; var Idx: TIntegerDynArray; Min, Max: integer); // by reference
     procedure IdxQuickSort(const Values : TDoubleDynArray; var Idx : TIntegerDynArray; L, R : integer);
 
     function IndexOfClasses(var Idx : TIntIntArray; var classes : TIntegerDynArray) : integer;
@@ -191,7 +194,7 @@ type
 
 implementation
 
-uses Math;
+uses Math, BaseMatrixExamples;
 
 { TCustomExampleList }
 
@@ -617,13 +620,84 @@ begin
 
      SetLength(Result, Length(dataSetIdx));
      SetLength(values, Length(dataSetIdx));
-     for j := 0 to Length(dataSetIdx) - 1 do
+     if DataSet is TMatrixLearnerExampleList then
      begin
-          Result[j] := j;
-          values[j] := DataSet[dataSetIdx[j]].FeatureVec[featureIdx];
+          for j := 0 to Length(dataSetIdx) - 1 do
+          begin
+               Result[j] := j;
+               values[j] := TMatrixLearnerExampleList(DataSet).Matrix[dataSetIdx[j], featureIdx];
+          end;
+     end
+     else
+     begin
+          for j := 0 to Length(dataSetIdx) - 1 do
+          begin
+               Result[j] := j;
+               values[j] := DataSet[dataSetIdx[j]].FeatureVec[featureIdx];
+          end;
      end;
 
      IdxQuickSort(values, Result, 0, Length(dataSetIdx) - 1);
+end;
+
+procedure TCustomWeightedLearner.IdxCountSort(const Values : TIntegerDynArray; var Idx : TIntegerDynArray; Min,Max : integer);
+Var count: Array of integer;
+    I, n : integer;
+begin
+     SetLength(count, max - min + 1);
+     n := Length(Values);
+
+     for I := 0 to (max - min) do count[I] := 0;
+         for I := 0 to (n - 1) do
+             count[Values[I] - min] := count[Values[I] - min] + 1;
+
+     // compute the total
+     Count[0] := Count[0]-1;  //make sure it starts at zero
+     for I := 1 to (max - min) do 
+         count[I] := Count[I-1]+Count[i];
+
+
+     for I := n-1 downto 0 do 
+     begin
+          Idx[Count[Values[i]-min]] := I;
+          Dec(Count[Values[i]-min]);
+     end;
+end;
+
+function TCustomWeightedLearner.CountSortIdx(const dataSetIdx: TIntegerDynArray;
+   featureIdx : integer): TIntegerDynArray;
+var values : TIntegerDynArray;
+    j : integer;
+    minVal, maxVal : integer;
+begin
+     assert(Assigned(DataSet) and (DataSet.Count >= Length(dataSetIdx)), 'Error no data set assigned');
+     assert(featureIdx < DataSet[0].FeatureVec.FeatureVecLen, 'Feature Index out of bounds');
+
+     SetLength(Result, Length(dataSetIdx));
+     SetLength(values, Length(dataSetIdx));
+
+     minVal := MaxInt;
+     maxval := -MaxInt;
+     if DataSet is TMatrixLearnerExampleList then
+     begin
+          for j := 0 to Length(dataSetIdx) - 1 do
+          begin
+               values[j] := Round(TMatrixLearnerExampleList(DataSet).Matrix[dataSetIdx[j], featureIdx]);
+               minVal := min(minVal, values[j]);
+               maxVal := max(maxVal, values[j]);
+          end;
+     end
+     else
+     begin
+          for j := 0 to Length(dataSetIdx) - 1 do
+          begin
+               Values[j] := Round(DataSet[DataSetIdx[j]].FeatureVec[FeatureIdx]);
+               minVal := min(minVal, values[j]);
+               maxVal := max(maxVal, values[j]);
+          end;
+     end;
+     
+     IdxCountSort(values, Result, MinVal, MaxVal);
 end;
 
 function TCustomWeightedLearner.Classes: TIntegerDynArray;

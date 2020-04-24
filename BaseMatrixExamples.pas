@@ -21,7 +21,7 @@ unit BaseMatrixExamples;
 
 interface
 
-uses SysUtils, Classes, BaseClassifier, Matrix;
+uses SysUtils, Classes, BaseClassifier, Matrix, Types;
 
 // #############################################################
 // #### most basic element - can be used in an example

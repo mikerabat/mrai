@@ -18,22 +18,28 @@ unit DecisionTree45;
 // #### Implementation of a simple
 // #### the C4.5 decision tree with weighted examples
 // #############################################################
+// ###########################################
+// #### Many thanks to Normand Péladeau who greatly helped to improve the routines 
+// ###########################################
 
 interface
 
 uses SysUtils, Classes, BaseClassifier, TreeStructs, Types, BaseMathPersistence;
 
 type
-  T45TreeLearnType = (ltFull, ltMaxDepth, ltPrune);
+  T45TreeLearnType = (ltFull, ltMaxDepth, ltMinSizeBranch, ltPrune);
 
 type
   TC45Props = record
     allowFeatureMultiUse : boolean;     // allows a feature to be used in more than one node
+    useGainRatio : boolean;             // use the gain ration G(S,B)/P(S,B) instaed of G(S,B) alone
     threadedGainCalc : boolean;         // parallelize the gain calculation
     numCores : integer;                 // use that man cores (0 = use the number of system cores) - you cannot use more than the number of system cores
+    useCountSort : boolean;             // use counting sort instead of quicksort - can only be used if the feature values are integers
     
     case LearnType : T45TreeLearnType of
       ltMaxDepth: (MaxDepth : integer);
+      ltMinSizeBranch: (MinNumDataSetSize : integer);
       ltPrune: ( UseValidationSet : boolean; ValidationsetSize : double);
   end;
 
@@ -89,10 +95,10 @@ type
     fLastFeatureIdx : integer;
     fUsedFeatures : TBooleanDynArray;
     fsumRight : TDoubleDynArray;
-    fsumLeft : TDoubleDynArray;
     fClasses : TIntegerDynArray;
     fNumClasses : integer;
 
+    fFeatureVecLen : integer;
     fCurIdx : integer;
     
     function GetNextFeatureIdx( var idx : integer ) : boolean;
@@ -115,11 +121,10 @@ implementation
 uses Math, MathUtilFunc, MtxThreadPool, Windows;
 
 const eps = 1e-6;
+      cMinNumExamplesPerThread = 1000;
       c45ClassesProps = 'classes';
       c45TreeProps = 'treedata';
 
-var isThreadPoolInit : boolean = false;
-      
 // ###########################################
 // #### 
 // ###########################################
@@ -196,13 +201,20 @@ var i : integer;
     entropyL, entropyR : double;
     gs : double;
     splitEntropy : double;
+    elem : TCustomLearnerExample;
+    next : TCustomLearnerExample;
+    mapIdx : integer;
 begin
      // calculatin of the information gain IG(Ex, a) = H(Ex) - H(Ex|a)
      // where H(Ex) is the entropy of the complete set and H(Ex|a) the entropy
      // of the examples
      SplitVal := 0;
 
-     sortIdx := CalcSortIdx(dataSetIdx, FeatureIdx);
+     if fProps.useCountSort 
+     then
+         sortIdx := CountSortIdx(dataSetIdx, FeatureIdx)
+     else
+         sortIdx := CalcSortIdx(dataSetIdx, FeatureIdx);
 
      sumWeight := 0;
      for i := 0 to Length(dataSetIdx) - 1 do
@@ -215,36 +227,43 @@ begin
      for i := 0 to numClasses - 1 do
      begin
           sumLeft[i] := 0;
-          sumRight[i] := 0;
+          sumRight[i] := fSumright[i];
      end;
 
      // initialize the sums
-     sumRight := copy(fsumRight, 0, Length(fSumRight));
-     sumLeft := copy(fsumLeft, 0, Length(fSumLeft));
-
      maxEntropy := -MaxDouble;
      SplitVal := 0;
      numElements := 0;
-     sumWeightLeft := 0;
 
      // now go through all splits and update the "left" side ( aka all elements that belong to the left node if splitted)
+     next := DataSet[DataSetIdx[sortIdx[0]]];
      for i := 0 to Length(dataSetIdx) - 2 do
      begin
+          // just precalc the indices and access to the elements
+          mapIdx := DataSetIdx[sortIdx[i]]; 
+          elem := next;
+          next := DataSet[DataSetIdx[sortIdx[i + 1]]];
+
           // move current element to the "left" part of the tree
           for k := 0 to numClasses - 1 do
           begin
-               if DataSet[DataSetIdx[sortIdx[i]]].ClassVal = fClasses[k] then
+               if elem.ClassVal = fClasses[k] then
                begin
-                    sumLeft[k] := sumLeft[k] + weights[dataSetIdx[sortIdx[i]]];
-                    sumRight[k] := sumRight[k] - weights[dataSetIdx[sortIdx[i]]];
-                    sumWeightLeft := sumWeightLeft + weights[dataSetIdx[sortIdx[i]]];
+                    sumLeft[k] := sumLeft[k] + weights[mapIdx];
                     break;
                end;
           end;
 
-          if DataSet[DataSetIdx[sortIdx[i]]].FeatureVec[FeatureIdx] = DataSet[DataSetIdx[sortIdx[i + 1]]].FeatureVec[FeatureIdx] then
+          if elem.FeatureVec[FeatureIdx] = next.FeatureVec[FeatureIdx] then
              continue;
 
+          sumWeightLeft := 0; 
+          for k := 0 to numClasses - 1 do
+          begin
+               sumWeightLeft := sumWeightLeft + sumLeft[k];
+               sumRight[k] := fsumRight[k] - sumLeft[k];
+          end;
+               
           // calc overall entropy for both datasets
           
           // G(S, B) = I(S) - sum(i=1:t) abs(Si)/abs(S)*I(Si)
@@ -264,25 +283,29 @@ begin
           splitEntropy := entropyL*sumweightLeft/sumWeight + entropyR*(sumWeight - sumWeightLeft)/sumWeight;
           gs := setEntropy - splitEntropy;
           
-          
-          // P(S,B) = - sum(i = 1:t) abs(Si)/abs(S)*ln( abs(Si)/abs(S) )
-          partitionEntropy := 0;
+          if fProps.useGainRatio then
+          begin
+               // P(S,B) = - sum(i = 1:t) abs(Si)/abs(S)*ln( abs(Si)/abs(S) )
+               partitionEntropy := 0;
 
-          // left
-          if sumWeightLeft > 0 then
-             partitionEntropy := - sumWeightLeft/sumWeight*log2(sumWeightLeft/sumWeight);
-          // right
-          if sumWeight > sumWeightLeft then
-             partitionEntropy := partitionEntropy - (sumWeight - sumWeightLeft)/sumWeight*log2((sumWeight - sumWeightLeft)/sumWeight);
-          
-          // B
-          entropyGain := gs/partitionEntropy; 
+               // left
+               if sumWeightLeft > 0 then
+                  partitionEntropy := - sumWeightLeft/sumWeight*log2(sumWeightLeft/sumWeight);
+               // right
+               if sumWeight > sumWeightLeft then
+                  partitionEntropy := partitionEntropy - (sumWeight - sumWeightLeft)/sumWeight*log2((sumWeight - sumWeightLeft)/sumWeight);
+
+               // B
+               entropyGain := gs/partitionEntropy; 
+          end
+          else
+              entropyGain := gs;
+
           if (entropyGain > maxEntropy) then
           begin
                numElements := i + 1;
                maxEntropy := entropyGain; 
-               SplitVal := (DataSet[DataSetIdx[sortIdx[i]]].FeatureVec[FeatureIdx] +
-                            DataSet[DataSetIdx[sortIdx[i + 1]]].FeatureVec[FeatureIdx]) / 2;
+               SplitVal := (elem.FeatureVec[FeatureIdx] + next.FeatureVec[FeatureIdx]) / 2;
           end;
      end;
 
@@ -324,6 +347,8 @@ begin
          validationIdx := trainingIdx;
 
      fLastFeatureIdx := -1;
+     fFeatureVecLen := DataSet[0].FeatureVec.FeatureVecLen;
+     
      tree := SplitByProperty(weights, trainingIdx, 0);
 
      if fProps.LearnType = ltPrune then
@@ -335,21 +360,19 @@ end;
 function TC45Learner.GetNextFeatureIdx(var idx: integer): boolean;
 begin
      idx := InterlockedIncrement( fCurIdx );
-     Result := idx < DataSet[0].FeatureVec.FeatureVecLen;
+     Result := idx < fFeatureVecLen;
 end;
 
 procedure TC45Learner.InitializeSums(const Weights : Array of double; const dataSetIdx : TIntegerDynArray);
 var i, k : integer;
 begin
      SetLength(fsumRight, fNumClasses);
-     SetLength(fsumLeft, fNumClasses);
      SetLength(fclasses, fNumClasses);
 
      for k := 0 to fNumClasses - 1 do
      begin
           fSumright[k] := 0;
-          fSumLeft[k] := 0;
-          fclasses[k] := 0;
+          fclasses[k] := -MaxInt;
      end;
      
      for i := 0 to Length(dataSetIdx) - 1 do
@@ -361,7 +384,7 @@ begin
                     fsumRight[k] := fsumRight[k] + Weights[dataSetIdx[i]];
                     break;
                end
-               else if fClasses[k] = 0 then
+               else if fClasses[k] = -MaxInt then
                begin
                     fsumRight[k] := Weights[dataSetIdx[i]];
                     fclasses[k] := DataSet[DataSetIdx[i]].ClassVal;
@@ -662,7 +685,8 @@ begin
          inc(overallNumExamples, NumExamples[i]);
 
      // check the max depth property:
-     if (fProps.LearnType = ltMaxDepth) and (curDepth = fProps.MaxDepth) then
+     if ( (fProps.LearnType = ltMaxDepth) and (curDepth = fProps.MaxDepth) ) or 
+        ( (fProps.LearnType = ltMinSizeBranch) and (Length(dataSetIdx) < fProps.MinNumDataSetSize) ) then
      begin
           Result := SelectLeaveByWeights;
           
@@ -708,18 +732,19 @@ begin
           numElements := nil;
           maxnumElements := 0;
 
-          SetLength(gains, DataSet[0].FeatureVec.FeatureVecLen);
-          SetLength(splitVals, DataSet[0].FeatureVec.FeatureVecLen);
-          SetLength(numElements, DataSet[0].FeatureVec.FeatureVecLen);
+          SetLength(gains, fFeatureVecLen);
+          SetLength(splitVals, fFeatureVecLen);
+          SetLength(numElements, fFeatureVecLen);
           
           for i := 0 to Length(gains) - 1 do
               gains[i] := -MaxDouble;
 
-          if fProps.threadedGainCalc and (Length(dataSetIdx) > 100) and (DataSet[0].FeatureVec.FeatureVecLen > 3) then
+          if fProps.threadedGainCalc and (Length(dataSetIdx) > 100) and (fFeatureVecLen > 3) then
           begin
                // prepare the threads
                fCurIdx := -1;
-               numObj := Min(fProps.numCores, DataSet[0].FeatureVec.FeatureVecLen);
+               numObj := Min(fProps.numCores, fFeatureVecLen);
+               numObj := Min(numObj, Max(1, Length(dataSetIdx) div cMinNumExamplesPerThread));
 
                asynRec.weights := @weights[0];
                asynRec.numWeights := Length(Weights);
@@ -748,7 +773,7 @@ begin
           end
           else
           begin
-               for i := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
+               for i := 0 to fFeatureVecLen - 1 do
                begin
                     if (i = fLastFeatureIdx) or (not fProps.allowFeatureMultiUse and fUsedFeatures[i]) then
                        continue;
@@ -828,13 +853,6 @@ begin
                TTreeNode(Result).RightItem := SplitByProperty(weights, rightData, curDepth + 1);
 
                Result.TreeData := nodeData;
-
-//               // create array again
-//               SetLength(dataSetIdx, Length(leftData) + Length(rightData));
-//               if Length(leftData) > 0 then
-//                  Move(leftData[0], dataSetIdx[0], sizeof(dataSetIdx[0])*Length(LeftData));
-//               if Length(rightData) > 0 then
-//                  Move(rightData[0], dataSetIdx[Length(leftData)], sizeof(dataSetIdx[0])*Length(rightData));
           end;
      end;
 end;
