@@ -60,6 +60,11 @@ Rabatscher Michael contact via www.mrsoft.org
 
 changelog:
 
+Date 27.4.2020:
+* speed up of the c4.5 implementation (thanks for the valuable input of N. Peladeau)
+* Multithreaded c4.5
+* Added some new features for c4.5: Stopping if a tree part has less then a certain minimum examples.
+
 Date: 12.06.2017:
 * Implemented new idea for weighted neural network learning (weight multiplication on backprop step)
 

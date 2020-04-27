@@ -121,7 +121,7 @@ implementation
 uses Math, MathUtilFunc, MtxThreadPool, Windows;
 
 const eps = 1e-6;
-      cMinNumExamplesPerThread = 1000;
+      cMinNumExamplesPerThread = 250;
       c45ClassesProps = 'classes';
       c45TreeProps = 'treedata';
 
@@ -739,7 +739,7 @@ begin
           for i := 0 to Length(gains) - 1 do
               gains[i] := -MaxDouble;
 
-          if fProps.threadedGainCalc and (Length(dataSetIdx) > 100) and (fFeatureVecLen > 3) then
+          if fProps.threadedGainCalc and (Length(dataSetIdx) > 50) and (fFeatureVecLen > 3) then
           begin
                // prepare the threads
                fCurIdx := -1;
