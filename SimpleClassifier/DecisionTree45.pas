@@ -35,6 +35,7 @@ type
     useGainRatio : boolean;             // use the gain ration G(S,B)/P(S,B) instaed of G(S,B) alone
     threadedGainCalc : boolean;         // parallelize the gain calculation
     numCores : integer;                 // use that man cores (0 = use the number of system cores) - you cannot use more than the number of system cores
+    minNumSamplesPerThread : integer;   // number of items at least used per thread. If zero 250 is used. 
     useCountSort : boolean;             // use counting sort instead of quicksort - can only be used if the feature values are integers
     
     case LearnType : T45TreeLearnType of
@@ -71,9 +72,9 @@ type
 
     procedure SaveTreeToStream(stream : TStream);
     procedure LoadTreeFromStream(stream : TStream);
-  protected
-    property Tree : TCustomTreeItem read fTree;
   public
+    property Tree : TCustomTreeItem read fTree;
+    
     function Classify(Example : TCustomExample; var confidence : double) : integer; override;
 
     procedure OnLoadBinaryProperty(const Name : String; const Value; size : integer); override;
@@ -602,6 +603,7 @@ var i, j : integer;
     asynRec : TAsyncC45Rec;
     numObj : integer;
     calls : IMtxAsyncCallGroup;
+    minNumSamplesPerThread : integer;
 
 function SelectLeaveByWeights : TTreeLeave;
 var i : integer;
@@ -638,6 +640,11 @@ end;
 begin
      assert(Length(dataSetIdx) > 0, 'Error empty dataset for splitting');
 
+     minNumSamplesPerThread := cMinNumExamplesPerThread;
+     if fProps.minNumSamplesPerThread > 0 then
+        minNumSamplesPerThread := fProps.minNumSamplesPerThread;
+        
+     
      // find the property with the highest information gain -> split there.
      SetLength(WeightedNumElements, 2);
      SetLength(NumExamples, 2);
@@ -744,7 +751,7 @@ begin
                // prepare the threads
                fCurIdx := -1;
                numObj := Min(fProps.numCores, fFeatureVecLen);
-               numObj := Min(numObj, Max(1, Length(dataSetIdx) div cMinNumExamplesPerThread));
+               numObj := Min(numObj, Max(1, Length(dataSetIdx) div minNumSamplesPerThread));
 
                asynRec.weights := @weights[0];
                asynRec.numWeights := Length(Weights);
