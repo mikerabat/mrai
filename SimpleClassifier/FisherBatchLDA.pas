@@ -41,7 +41,7 @@ type
   TFisherAugmentedBaseProps = record
     UseFullSpace : boolean;
     ClassifierType : TFisherAugmentedClassifierType;
-    NumLDAVectorsToKeep : integer;                   // todo: pherhaps take the pca eigenvalues energy as property
+    NumLDAVectorsToKeep : integer;                   // todo: eventually take the pca eigenvalues energy as property
     RobustPCAProps : TFastRobustPCAProps;            // only used in case the classifier type is ctFastRobust
   end;
 
