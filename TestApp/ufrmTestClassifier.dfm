@@ -246,16 +246,8 @@ object frmClassifierTest: TfrmClassifierTest
       Height = 16
       Caption = 'FaceDB'
     end
-<<<<<<< .mine
-    object butImgRobustFisherLDA: TButton
-      Left = 16
-||||||| .r25
-    object butImgRobustFischerLDA: TButton
-      Left = 16
-=======
     object butImgRobustFisherLDA: TButton
       Left = 15
->>>>>>> .r30
       Top = 140
       Width = 281
       Height = 25
