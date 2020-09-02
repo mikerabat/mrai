@@ -246,8 +246,16 @@ object frmClassifierTest: TfrmClassifierTest
       Height = 16
       Caption = 'FaceDB'
     end
+<<<<<<< .mine
+    object butImgRobustFisherLDA: TButton
+      Left = 16
+||||||| .r25
+    object butImgRobustFischerLDA: TButton
+      Left = 16
+=======
     object butImgRobustFisherLDA: TButton
       Left = 15
+>>>>>>> .r30
       Top = 140
       Width = 281
       Height = 25
@@ -294,7 +302,7 @@ object frmClassifierTest: TfrmClassifierTest
       Top = 171
       Width = 281
       Height = 25
-      Caption = 'Incremental Fischer LDA'
+      Caption = 'Incremental Fisher LDA'
       TabOrder = 5
       OnClick = butImgRobustFisherLDAClick
     end
