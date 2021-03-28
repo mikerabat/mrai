@@ -303,7 +303,7 @@ begin
      end;
 
      // now create the resulting array
-     Result := LearningSet.ClassType.Create as TCustomLearnerExampleList;
+     Result := TCustomLearnerExampleList.Create; // LearningSet.ClassType.Create as TCustomLearnerExampleList;
      Result.OwnsObjects := False;
      Result.Capacity := len;
      for i := 0 to numElements - 1 do
@@ -373,7 +373,7 @@ begin
             minNumElem := Min(minNumElem, classes[i]);
 
         // create the resulting list:
-        Result := ClassType.Create as TCustomLearnerExampleList;
+        Result := TCustomLearnerExampleList.Create; //ClassType.Create as TCustomLearnerExampleList;
         Result.OwnsObjects := False;
         Result.Capacity := minNumElem*numClasses;
 
@@ -412,7 +412,7 @@ begin
         exit;
 
      // we only want to store references to the examples in the new data set
-     copyList := ClassType.Create as TCustomLearnerExampleList;
+     copyList := TCustomLearnerExampleList.Create; //ClassType.Create as TCustomLearnerExampleList;
      try
         copyList.OwnsObjects := False;
         copyList.Capacity := Count;
@@ -447,7 +447,7 @@ begin
         minNumElem := (minNumElem*Max(0, Min(100, Percentage))) div 100;
 
         // create the resulting list:
-        Result := ClassType.Create as TCustomLearnerExampleList;
+        Result := TCustomLearnerExampleList.Create; //ClassType.Create as TCustomLearnerExampleList;
         Result.OwnsObjects := False;
         Result.Capacity := minNumElem*numClasses;
 
