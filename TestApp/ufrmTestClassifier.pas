@@ -1210,9 +1210,12 @@ begin
 //                                                  Trunc($0 + Max(0, Min(1, 1 - conf))*$FF)
 //                                                    ));
 end;
+var freq, start, stop : Int64;
 begin
      if not Assigned(fClMapBmp) then
      begin
+          QueryPerformanceFrequency(freq);
+          QueryPerformanceCounter(start);
           fClMapBmp := TBitmap.Create;
           fClMapBmp.SetSize(PaintBox1.Width, PaintBox1.Height);
 
@@ -1235,6 +1238,9 @@ begin
           end;
           xmpl.Free;
           aMtx.Free;
+
+          QueryPerformanceCounter(stop);
+          OutputDebugString( PChar( Format('Confidence map took %.3fms', [ 1000*(stop - start)/freq ] ) ) );
 
           fClMapBmp.Canvas.Brush.Color := PaintBox1.Color;
           fClMapBmp.Canvas.FillRect(Rect(0, 0, fClMapBmp.Width, fClMapBmp.Height));

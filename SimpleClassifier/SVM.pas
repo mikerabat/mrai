@@ -64,6 +64,8 @@ type
 
     fConfA, fConfB : double;
 
+    fPrealloc : IMatrix;
+    
     function AugmentedExample(Example : TCustomExample) : IMatrix;
     function PolyKernel(Example : TCustomExample) : IMatrix;
     function SigmoidKernel(Example : TCustomExample) : IMatrix;
@@ -219,7 +221,7 @@ begin
      if fProps.autoScale then
      begin
           if fProps.learnMethod = lmLagrangian then
-             augExmpl.SetSubMatrix(0, 0, augExmpl.Width - 1, augExmpl.Height);
+             augExmpl.SetSubMatrix(0, 0, augExmpl.Width, augExmpl.Height - 1);
           // calculate autoscale parameters:
           // use standard deviation and mean
           scaleMean := augExmpl.Mean(True);
@@ -558,6 +560,7 @@ function TSVMClassifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var x : IMatrix;
 begin
+     //x := TDoubleMatrix.Create( [0.1, 0.1, 0], 3, 1 );
      // kernel evaluation
      case fProps.kernelType of
        svmPoly,
@@ -602,7 +605,9 @@ end;
 function TSVMClassifier.AugmentedExample(Example: TCustomExample): IMatrix;
 var x : integer;
 begin
-     Result := TDoubleMatrix.Create(fSV.Width, 1, 1);
+     if not Assigned(fPrealloc) then
+        fPrealloc := TDoubleMatrix.Create(fSV.Width, 1, 1);
+     Result := fPrealloc;
 
      // Create a matrix of the feature vectors -> this classifier only understands matrices
      for x := 0 to Example.FeatureVec.FeatureVecLen - 1 do
@@ -612,6 +617,7 @@ begin
      // #### Autoscaling according to the train set
      if fProps.autoScale and Assigned(fScaleMean) and Assigned(fScaleFact) then
      begin
+          Result.Vec[fSV.Width - 1] := 1;
           Result.SetSubMatrix(0, 0, fScaleMean.Width, 1);
           Result.SubInPlace(fScaleMean);
           Result.ElementWiseMultInPlace(fScaleFact);
@@ -671,7 +677,6 @@ function TSVMClassifier.PolyKernel(Example: TCustomExample): IMatrix;
 var k : IMatrix;
 begin
      k := AugmentedExample(Example);
-     
      Result := k.MultT2(fSV); 
 
      if (fProps.order > 1) or (fProps.kernelType = svmPolyInhomogen) then
