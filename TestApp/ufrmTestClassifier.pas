@@ -110,7 +110,7 @@ type
     procedure TestLearnError;
     procedure TestUnseenImages;
     function Create2DGaussSet(const mean, stddev : Array of Double; const classLabels : Array of integer;
-                              numDim : integer; numExamples : integer) : TCustomLearnerExampleList;
+                              numDim : integer; const numExamples : Array of integer) : TCustomLearnerExampleList;
   public
     { Public-Deklarationen }
   end;
@@ -541,6 +541,7 @@ begin
      begin
           FreeAndNil(fClMapBmp);
           
+          FillChar(props, sizeof(props), 0);
           props.LearnType := ltPrune;
           props.ValidationsetSize := 0.0;
           props.UseValidationSet := True;
@@ -575,7 +576,7 @@ begin
 {$ENDIF}
 
      // testing a gaussian distribution
-     fexamples := Create2DGaussSet(means, stdevs, classLabels, 2, 50);
+     fexamples := Create2DGaussSet(means, stdevs, classLabels, 2, [50, 50]);
      PaintBox1.Repaint;
 end;
 
@@ -805,15 +806,15 @@ begin
           FreeAndNil(fClMapBmp);
 
           props.learnMethod := lmLagrangian;
-          props.autoScale := True;
+          props.autoScale := true;
           //props.kernelType := svmGauss;
           //props.sigma := 0.51;
-          props.kernelType := svmSigmoid;
-          props.scale := 0.5;
-          props.offset := 1;
+          //props.kernelType := svmSigmoid;
+//          props.scale := 0.5;
+//          props.offset := 1;
 
-          //props.order := 7;
-          
+          props.kernelType := svmPolyInhomogen;
+          props.order := 3;
           props.slack := 1;
 
           learner := TSVMLearner.Create;
@@ -831,7 +832,7 @@ begin
 end;
 
 function TfrmClassifierTest.Create2DGaussSet(const mean,
-  stddev: array of Double; const classLabels : Array of integer; numDim : integer; numExamples : integer): TCustomLearnerExampleList;
+  stddev: array of Double; const classLabels : Array of integer; numDim : integer; const numExamples : Array of integer): TCustomLearnerExampleList;
 var i, j, k : integer;
     matrix : TDoubleMatrix;
     classvals : Array of integer;
@@ -840,7 +841,7 @@ begin
      assert(Length(mean) = length(stddev), 'Dimension error');
      assert(Length(mean) mod numDim = 0, 'Dimension error');
      assert(Length(classLabels) = Length(stddev) div numDim, 'Dimension error');
-     Setlength(classvals, numExamples*(Length(stddev) div numDim));
+     Setlength(classvals, SumInt( numExamples ));
 
      // this is a simple test matrix for easier debugging
      //matrix := TDoubleMatrix.Create(4, 2);
@@ -874,7 +875,7 @@ begin
      actClassIdx := 0;
      for i := 0 to Length(stddev) div numDim - 1 do
      begin
-          for j := 0 to numExamples - 1 do
+          for j := 0 to numExamples[i] - 1 do
           begin
                for k := 0 to numDim - 1 do
                begin
@@ -889,6 +890,20 @@ begin
           end;
      end;
 
+    // with TStringList.Create do
+//     try
+//        DecimalSeparator := '.';
+//        beginUpdate;
+//        for i := 0 to matrix.width - 1 do
+//        begin
+//             Add( Format('%.6f, %.6f, %d', [matrix[i, 0], matrix[i, 1], classVals[i] ] ));
+//        end;
+//        EndUpdate;
+//        SaveToFile('D:\testcl.txt', TEncoding.ASCII);
+//     finally
+//            Free;
+//     end;
+     
      Result := TMatrixLearnerExampleList.Create(matrix, classvals, True);
 end;
 

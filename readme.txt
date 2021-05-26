@@ -60,6 +60,11 @@ Rabatscher Michael contact via www.mrsoft.org
 
 changelog:
 
+Date 26.05.2021:
+* Various bugfixes for SVM.
+* Fixed a problem in the threaded decission stump learner where the threshold calculation was off by one.
+* simplified decission stump learner code
+
 Date 27.4.2020:
 * speed up of the c4.5 implementation (thanks for the valuable input of N. Peladeau)
 * Multithreaded c4.5

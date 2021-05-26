@@ -71,6 +71,7 @@ type
     procedure MaintainSums(featureIdx: integer; const SortIdx : TIntegerDynArray; const Weights : Array of double;
                            var TotSumP, TotSumN : double; var SumNeg, SumPos : TDoubleDynArray; var c1, c2 : integer);
   protected
+    procedure CalcOneFeature( featureIndex : integer; var sumNeg, sumPos : TDoubleDynArray );
     function DoLearn(const weights : Array of double) : TCustomClassifier; override;
   public
     procedure Init(DataSet : TCustomLearnerExampleList); override;
@@ -159,14 +160,8 @@ end;
 
 procedure TErrorEvalThread.Execute;
 var featureIdx : integer;
-    TotSumP, TotSumN : double;
-    SumPos, SumNeg : TDoubleDynArray;
-    c1, c2 : integer;
-    i : integer;
-    e : double;
     wr : TWaitResult;
-    SortIdx : TIntegerDynArray;
-    minIdx : integer;
+    sumNeg, sumPos : TDoubleDynArray;
 begin
      while not Terminated do
      begin
@@ -180,47 +175,11 @@ begin
 
           fFinished := False;
              
-          // #######################################################
-          // #### Start evaluation
-          SetLength(SumPos, fRef.fLearner.DataSet.Count);
-          SetLength(SumNeg, fRef.fLearner.DataSet.Count);
-
-          c1 := fRef.fLearner.DataSet[0].ClassVal;
-          c2 := -MaxInt;
-
           while fRef.GetNext(featureIdx) do
           begin
-               // #################################################
-               // #### do some precalculations to find the minimum made error
-               // for that specific feature easily
-               SortIdx := fRef.fLearner.CalcSortIdx(featureIdx);
-               fRef.fLearner.MaintainSums(featureIdx, SortIdx, Slice(PConstDoubleArr(fRef.fLearner.fWeights)^, fRef.fLearner.DataSet.Count), TotSumP, TotSumN, SumNeg, SumPos, c1, c2);
-
-               // calculate minimum error for this feature
-               fRef.fLearner.fErrors[featureIdx] := MaxDouble;
-               fRef.fLearner.fMinIdx[featureIdx] := -1;
-               minIdx := -1;
-               for i := 0 to fRef.fLearner.DataSet.Count - 1 do
-               begin
-                    e := Min(SumPos[i] + (TotSumN - SumNeg[i]), SumNeg[i] + (TotSumP - SumPos[i]));
-
-                    if e < fRef.fLearner.fErrors[featureIdx] then
-                    begin
-                         minIdx := i;
-                         fRef.fLearner.fErrors[featureIdx] := e;
-                    end;
-               end;
-
-               fRef.fLearner.fMinIdx[featureIdx] := SortIdx[minIdx];
-
-               assert(minIdx >= 0, 'error in error calculation');
-
-               if minIdx > 0
-               then
-                   fRef.fLearner.fThresh[featureIdx] := (fRef.fLearner.DataSet[SortIdx[minIdx]].FeatureVec[featureIdx] +
-                                                         fRef.fLearner.DataSet[SortIdx[minIdx - 1]].FeatureVec[featureIdx]) / 2
-               else
-                   fRef.fLearner.fThresh[featureIdx] := fRef.fLearner.DataSet[SortIdx[minIdx]].FeatureVec[featureIdx];
+               // ###########################################
+               // #### Maintain the list for one feature
+               fRef.fLearner.CalcOneFeature(featureIdx, sumNeg, sumPos);
           end;
 
           fFinished := True;
@@ -245,8 +204,7 @@ begin
      fFeatureVecLen := fLearner.DataSet[0].FeatureVec.FeatureVecLen;
 
      fActIdx := -1;
-     SetLength(fEvalThreads, NumIterThreads);
-     for i := 0 to NumIterThreads - 1 do
+     for i := 0 to Min(fFeatureVecLen, NumIterThreads) - 1 do
          fEvalThreads[i].SetEvent;
 end;
 
@@ -299,7 +257,7 @@ begin
              // ###########################################
              // #### We need to wait since it may be that 
              // threads are still evaluating
-             for i := 0 to NumIterThreads - 1 do
+             for i := 0 to Min(fFeatureVecLen, NumIterThreads) - 1 do
                  Result := Result and fEvalThreads[i].Finished;
         end
         else
@@ -332,6 +290,51 @@ end;
 // #### Actual learner
 { TDecisionStumpLearner }
 
+procedure TDecisionStumpLearner.CalcOneFeature(featureIndex: integer; var sumNeg, sumPos : TDoubleDynArray);
+var TotSumP : double;
+    TotSumN : double;
+    i : integer;
+    e : double;
+    c1, c2 : integer;
+    minIdx : integer;
+    SortIdx : TIntegerDynArray;
+begin
+     c1 := DataSet[0].ClassVal;
+     c2 := -MaxInt;
+     
+     // #################################################
+     // #### do some precalculations to find the minimum made error
+     // for that specific feature easily
+     SortIdx := CalcSortIdx(featureIndex);
+     MaintainSums(featureIndex, SortIdx, Slice(PConstDoubleArr(fWeights)^, DataSet.Count), 
+                  TotSumP, TotSumN, SumNeg, SumPos, c1, c2);
+
+     // calculate minimum error for this feature
+     fErrors[featureIndex] := MaxDouble;
+     minIdx := -1;
+     for i := 0 to DataSet.Count - 1 do
+     begin
+          e := Min(SumPos[i] + (TotSumN - SumNeg[i]), SumNeg[i] + (TotSumP - SumPos[i]));
+
+          if e < fErrors[featureIndex] then
+          begin
+               minIdx := i;
+               fErrors[featureIndex] := e;
+          end;
+     end;
+
+     // actual min index is the sorted feature index
+     fMinIdx[featureIndex] := SortIdx[minIdx];
+
+     assert(minIdx >= 0, 'error in error calculation');
+
+     if minIdx < Length(sortIdx) - 1
+     then
+         fThresh[featureIndex] := (DataSet[SortIdx[minIdx]].FeatureVec[featureIndex] + DataSet[SortIdx[minIdx + 1]].FeatureVec[featureIndex]) / 2
+     else
+         fThresh[featureIndex] := DataSet[SortIdx[minIdx]].FeatureVec[featureIndex];
+end;
+
 class function TDecisionStumpLearner.CanLearnClassifier(
   Classifier: TCustomClassifierClass): boolean;
 begin
@@ -343,6 +346,10 @@ procedure TDecisionStumpLearner.MaintainSums(featureIdx : integer; const SortIdx
   var c1, c2 : integer);
 var i : integer;
 begin
+     if Length(sumNeg) <> DataSet.Count then
+        SetLength(sumNeg, dataSet.Count);
+     if Length(sumPos) <> DataSet.Count then
+        SetLength(sumPos, dataSet.Count);
      // first calculate total sums
      TotSumP := 0;
      TotSumN := 0;
@@ -394,7 +401,6 @@ var TotSumP : double;
     minError : double;
     numCorrectClassified : integer;
     progress : integer;
-    minIdx : integer;
     SortIdx : TIntegerDynArray;
 begin
      assert(DataSet.Count > 0, 'Error, cannot learn classifier from an empty dataset');
@@ -413,8 +419,6 @@ begin
 
      c1 := DataSet[0].ClassVal;
      c2 := -MaxInt;
-     TotSumP := 0;
-     TotSumN := 0;
 
      // #####################################################
      // #### Multi threaded search for the optimal feature vector
@@ -433,40 +437,11 @@ begin
      end
      else
      begin
-          // evaluate all features
+          // evaluate all features in one loop
           for j := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
           begin
-               // #################################################
-               // #### do some precalculations to find the minimum made error
-               // for that specific feature easily
-               SortIdx := CalcSortIdx(j);
-               MaintainSums(j, SortIdx, weights, TotSumP, TotSumN, SumNeg, SumPos, c1, c2);
-
-               // calculate minimum error for this feature
-               fErrors[j] := MaxDouble;
-               minIdx := -1;
-               for i := 0 to DataSet.Count - 1 do
-               begin
-                    e := Min(SumPos[i] + (TotSumN - SumNeg[i]), SumNeg[i] + (TotSumP - SumPos[i]));
-
-                    if e < fErrors[j] then
-                    begin
-                         minIdx := i;
-                         fErrors[j] := e;
-                    end;
-               end;
-
-               // actual min index is the sorted feature index
-               fMinIdx[j] := SortIdx[minIdx];
-
-               assert(minIdx >= 0, 'error in error calculation');
-
-               if minIdx < Length(sortIdx) - 1
-               then
-                   fThresh[j] := (DataSet[SortIdx[minIdx]].FeatureVec[j] + DataSet[SortIdx[minIdx + 1]].FeatureVec[j]) / 2
-               else
-                   fThresh[j] := DataSet[SortIdx[minIdx]].FeatureVec[j];
-
+               CalcOneFeature(j, SumNeg, SumPos);
+               
                DoProgress(round(100*j/DataSet[0].FeatureVec.FeatureVecLen));
           end;
      end;
@@ -494,6 +469,8 @@ begin
      // the point is calculated according to the left and right training error.
      // where the distance reaches a training error of 63% we have our value.
      SortIdx := CalcSortIdx(dim);
+     TotSumP := 0;
+     TotSumN := 0;
      MaintainSums(dim, SortIdx, weights, TotSumP, TotSumN, SumNeg, SumPos, c1, c2);
      confMult := 0;
      for i := 0 to fMinIdx[dim] do

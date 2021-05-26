@@ -20,11 +20,14 @@ unit SVM;
 
 // following the example in the algorithm:
 // "Pattern Classification" - Stork et al
-
 // the Lagragian part is based on:
 // Mangasarian and Musicant: "Lagragian Support Vector Machines"
+// code is based on the lagragian implementation in the Pattern Classification book (svm.m)
 
-// the classifier can also process simple Matlab generated classifier.
+// Least squares example is inspired by 
+// Suykens, J.A.K., Van Gestel, T., De Brabanter, J., De Moor, B.,
+// Vandewalle, J., Least Squares Support Vector Machines,
+// World Scientific, Singapore, 2002.     (Matlab ref)
 
 interface
 
@@ -105,12 +108,15 @@ type
     function SigmoidKernelData(augTrainSet : IMatrix) : IMatrix;
     function TrainSet(doAugment : boolean) : IMatrix;
 
-    procedure LearnLagrangian(y : IMatrix); // this algorithm is not very good... (numerically instable + very bad results)
+    procedure LearnLagrangian(y : IMatrix); 
     procedure LearnLeastSquares(y : IMatrix);
+    function GetMargin: double;
   protected
     // todo: add support for weighted learning
     function DoLearn(const weights : Array of double) : TCustomClassifier; override;
   public
+    property Margin : double read GetMargin;  // just a property
+  
     procedure AfterConstruction; override;
 
     procedure SetProps(const Props : TSVMProps);
@@ -199,7 +205,7 @@ begin
      then
          fZIdx := idx[0]
      else
-         fZIdx := idx[1];
+         fZIdx := idx[0];
 
      // ###########################################
      // #### augmented training set
@@ -287,6 +293,7 @@ var tol : double;
     maxIter : integer;
     nu  : double;
     iter : integer;
+    i : integer;
     alpha : double;
     e : IMatrix;
     Q : IMatrix;
@@ -295,7 +302,6 @@ var tol : double;
     oldu : IMatrix;
     f : IMatrix;
     cnt : integer;
-    nuInv : double;
     utmp : IMatrix;
     numVec : integer;
 
@@ -303,13 +309,12 @@ function uDiff : double;
 var u1 : IMatrix;
 begin
      u1 := u.Sub(oldu);
-     Result := u1.ElementwiseNorm2;
+     Result := u1.ElementwiseNorm2( False );
 end;
 begin
      tol := 1e-5;
      maxIter := 100000;
      nu := 1/DataSet.Count;
-     nuInv := DataSet.Count;
 
      alpha := 1.9/nu;
      e := TDoubleMatrix.Create(1, DataSet.Count, 1);
@@ -329,8 +334,8 @@ begin
           Q.ScaleInPlace(-1);
      end;
      Q.UseFullMatrix;
-     for cnt := 0 to y.Height - 1 do
-         Q[cnt, cnt] := Q[cnt, cnt] + nuInv;
+     for cnt := 0 to Q.Height - 1 do
+         Q[cnt, cnt] := Q[cnt, cnt] + DataSet.Count;
 
      // u=P*e;
      // oldu=u+1
@@ -340,7 +345,6 @@ begin
 
      // main loop
      iter := 0;
-
      while (iter < maxIter) and (uDiff > tol) do
      begin
           // matlab code:
@@ -349,10 +353,9 @@ begin
           // u       = P*(1+(abs(f)+f)/2);
           oldu := u;
 
-          utmp := u.Scale(alpha);
+          utmp := u.ScaleAndAdd(1, alpha);
 
           f := Q.Mult(u);
-          f.AddInPlace(-1);
           f.SubInPlace(utmp);
 
           utmp := f.Abs;
@@ -368,22 +371,15 @@ begin
      // a_star    = y*D*u(1:Nf);
      // bias      = -e'*D*u;
      // sv		  = find(abs(a_star) > slack*1e-3);
-     for cnt := 0 to Length(fZIdx) - 1 do
-     begin
-          y.SetSubMatrix(fZIdx[cnt], 0, 1, y.Height);
-          y.ScaleInPlace(-1);
-     end;
+
+     // calc D*u
+     for i := 0 to Length(fZIdx) - 1 do
+         u.Vec[ fZIdx[i] ] := -u.Vec[ fZIdx[i] ];
 
      y.UseFullMatrix;
      y.MultInPlace(u);
      faStar := y;
 
-     for cnt := 0 to Length(fZIdx) - 1 do
-     begin
-          u.SetSubMatrix(0, fZIdx[cnt], u.Width, 1);
-          u.ScaleInPlace(-1);
-     end;
-     u.UseFullMatrix;
      fBias := e.Transpose;
      fBias.ScaleInPlace(-1);
      fBias.MultInPlace(u);
@@ -413,7 +409,7 @@ var kx : IMatrix;
     counter: Integer;
     A : IMatrix;
     b : IMatrix;
-    numElem : integer;
+    gIdx : IMatrix;
 begin
      // ensure function is symmetric
      //kx = (kx+kx')/2 + diag(1./boxconstraint);
@@ -425,14 +421,14 @@ begin
          kx[counter, counter] := kx[counter, counter] + 1;
 
      // create hessian
-     numElem := DataSet.Count - Length(fZIdx);
-     kx.SetSubMatrix(0, kx.Height - numElem, numElem, kx.Height - numElem);
-     kx.ScaleInPlace(-1);
-     kx.UseFullMatrix;
-     kx.SetSubMatrix(numElem, 0, kx.Width - numElem, numElem);
-     kx.ScaleInPlace(-1);
-     kx.UseFullMatrix;
-
+     // H =((groupIndex * groupIndex').*kx);
+     gIdx := TDoubleMatrix.Create( 1, DataSet.Count, 1 );
+     for counter := 0 to Length(fZIdx) - 1 do
+         gIdx.Vec[fZIdx[counter]] := -1;
+     gIdx.MultInPlaceT2(gIdx);
+     kx.ElementWiseMultInPlace(gIdx);
+     gIdx := nil;    
+     
      // create augmented matrix A
      A := TDoubleMatrix.Create(DataSet.Count + 1, DataSet.Count + 1);
      SetLength(grIndex, DataSet.Count + 1);
@@ -477,17 +473,14 @@ end;
 
 function TSVMLearner.PolyKernelData(augTrainSet : IMatrix): IMatrix;
 var x : Integer;
-    tTrainSet : IMatrix;
     dotproduct : IMatrix;
 begin
-     tTrainSet := augTrainSet.Transpose;
-
-     dotproduct := tTrainSet.Mult(augTrainSet);
-     Result := TDoubleMatrix.Create;
-     Result.Assign(dotproduct);
-
+     dotproduct := augTrainSet.MultT1( augTrainSet );
      if fProps.kernelType = svmPolyInhomogen then
         dotproduct.AddInplace(1);
+
+     Result := TDoubleMatrix.Create;
+     Result.Assign(dotproduct);
 
      for x := 1 to fProps.order - 1 do
          Result.ElementWiseMultInPlace(dotproduct);         
@@ -547,6 +540,13 @@ begin
 end;
 
 
+function TSVMLearner.GetMargin: double;
+begin
+     Result := 0;
+     if Assigned(faStar) then
+        Result := 1/faStar.ElementwiseNorm2;
+end;
+
 procedure TSVMLearner.SetProps(const Props: TSVMProps);
 begin
      fProps := Props;
@@ -557,7 +557,6 @@ end;
 function TSVMClassifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var x : IMatrix;
-
 begin
      // kernel evaluation
      case fProps.kernelType of
@@ -568,17 +567,17 @@ begin
      end;
 
      // weighting function (the classification plane)
-     x.TransposeInPlace;
+     //x.TransposeInPlace;
      x.MultInPlace(fW);
      x.AddInplace(fBias);
 
      // classify
      confidence := Abs(x[0, 0]);
-     if x[0, 0] >= 0
+     if x[0, 0] > 0
      then
-         Result := fClassVal1
+         Result := fClassVal2
      else
-         Result := fClassVal2;
+         Result := fClassVal1;
 
      // confidence defined as 1/(1 + exp(a * f(input) + b))
      // defined in Probalistic Outputs for Support Vector Machines and comparisons to regularized likelihood methods
@@ -601,19 +600,19 @@ begin
 end;
 
 function TSVMClassifier.AugmentedExample(Example: TCustomExample): IMatrix;
-var y : integer;
+var x : integer;
 begin
-     Result := TDoubleMatrix.Create(1, fSV.Width, 1);
+     Result := TDoubleMatrix.Create(fSV.Width, 1, 1);
 
      // Create a matrix of the feature vectors -> this classifier only understands matrices
-     for y := 0 to Example.FeatureVec.FeatureVecLen - 1 do
-         Result[0, y] := Example.FeatureVec[y];
+     for x := 0 to Example.FeatureVec.FeatureVecLen - 1 do
+         Result[x, 0] := Example.FeatureVec[x];
 
      // ###########################################
      // #### Autoscaling according to the train set
      if fProps.autoScale and Assigned(fScaleMean) and Assigned(fScaleFact) then
      begin
-          Result.SetSubMatrix(0, 0, 1, fScaleMean.Height);
+          Result.SetSubMatrix(0, 0, fScaleMean.Width, 1);
           Result.SubInPlace(fScaleMean);
           Result.ElementWiseMultInPlace(fScaleFact);
           Result.UseFullMatrix;
@@ -633,8 +632,13 @@ begin
      fConfA := 0;
      fConfB := 0;
 
-     fScaleMean := scaleMean;
-     fScaleFact := scaleFact;
+     fScaleMean := nil;
+     fScaleFact := nil;
+     if Assigned(scaleMean) then
+        fScaleMean := scaleMean.Transpose;
+     if Assigned(scaleFact) then
+        fScaleFact := scaleFact.Transpose;
+     
      fProps := props;
      fW := w;
      fBias := bias;
@@ -657,7 +661,8 @@ procedure TSVMClassifier.PolyFuncInhom(var value: double);
 var cnt : integer;
     mul : double;
 begin
-     mul := value + 1;
+     value := value + 1;
+     mul := value;
      for cnt := 0 to fProps.order - 2 do
          value := value*mul;
 end;
@@ -666,10 +671,10 @@ function TSVMClassifier.PolyKernel(Example: TCustomExample): IMatrix;
 var k : IMatrix;
 begin
      k := AugmentedExample(Example);
+     
+     Result := k.MultT2(fSV); 
 
-     Result := fSV.Mult(k);
-
-     if fProps.order > 1 then
+     if (fProps.order > 1) or (fProps.kernelType = svmPolyInhomogen) then
      begin
           if fProps.kernelType = svmPolyInhomogen
           then
@@ -683,10 +688,10 @@ function TSVMClassifier.SigmoidKernel(Example: TCustomExample): IMatrix;
 var k : IMatrix;
 begin
      k := AugmentedExample(Example);
+     
+     Result := k.MultT2(fSV); 
 
-     Result := fSV.Mult(k);
-
-     Result.AddAndScaleInPlace(fProps.scale, fProps.offset);
+     Result.ScaleAndAddInPlace(fProps.offset, fProps.scale);
      Result.ElementwiseFuncInPlace(TanhFunc);
 end;
 
@@ -696,19 +701,15 @@ var k : IMatrix;
     i : integer;
     sum : IMatrix;
 begin
-     Result := TDoubleMatrix.Create(1, fSV.Height);
+     Result := TDoubleMatrix.Create(fSV.Height, 1);
      k := AugmentedExample(Example);
-     // note we need to transpose the example since the support vectors are transposed as well
-     k.TransposeInPlace;
-
      gamma := -1/(2*sqr(fProps.sigma));
+     sum := TDoubleMatrix.Create( k.Width, k.Height );
      for i := 0 to fSV.Height - 1 do
      begin
-          fSV.SetSubMatrix(0, i, fSV.Width, 1);
-
-          sum := fSV.Sub(k);
-          Result[0, i] := exp(gamma*sqr(sum.ElementwiseNorm2));
-          fSV.UseFullMatrix;
+          sum.SetRow(0, fSV, i);
+          sum.SubInPlace(k);
+          Result.Vec[i] := exp(gamma*sum.ElementwiseNorm2(False));
      end;
 end;
 
