@@ -60,6 +60,9 @@ Rabatscher Michael contact via www.mrsoft.org
 
 changelog:
 
+Date 10.8.2021:
+* Groundhog day on SVM: fixed least squares scaling.
+
 Date 26.05.2021:
 * Various bugfixes for SVM.
 * Fixed a problem in the threaded decission stump learner where the threshold calculation was off by one.

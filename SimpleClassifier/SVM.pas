@@ -203,11 +203,7 @@ begin
         raise ESVMClassException.Create('Error only 2 class problems are supported');
 
      // store indices for faster diagonal multiplication
-     if fProps.learnMethod = lmLeastSquares
-     then
-         fZIdx := idx[0]
-     else
-         fZIdx := idx[0];
+     fZIdx := idx[0];
 
      // ###########################################
      // #### augmented training set
@@ -412,6 +408,8 @@ var kx : IMatrix;
     A : IMatrix;
     b : IMatrix;
     gIdx : IMatrix;
+    invBoxConstr1, invBoxConstr2 : double;
+    c : integer;
 begin
      // ensure function is symmetric
      //kx = (kx+kx')/2 + diag(1./boxconstraint);
@@ -419,34 +417,34 @@ begin
      kx.AddInplace(y);
      kx.ScaleInPlace(1/2);
 
+     c := dataSet.Example[0].ClassVal;
+     invBoxConstr1 := 2*Length(fZIdx)/DataSet.Count;
+     invBoxConstr2 := 2*(DataSet.Count - Length(fZIdx))/DataSet.Count;
+
      for counter := 0 to kx.Width - 1 do
-         kx[counter, counter] := kx[counter, counter] + 1;
+         kx[counter, counter] := kx[counter, counter] + Ifthen( DataSet.Example[counter].ClassVal = c, invBoxConstr1, invBoxConstr2);
 
      // create hessian
      // H =((groupIndex * groupIndex').*kx);
      gIdx := TDoubleMatrix.Create( 1, DataSet.Count, 1 );
      for counter := 0 to Length(fZIdx) - 1 do
          gIdx.Vec[fZIdx[counter]] := -1;
+
+     grIndex := gIdx.SubMatrix;
+
      gIdx.MultInPlaceT2(gIdx);
      kx.ElementWiseMultInPlace(gIdx);
      gIdx := nil;    
      
      // create augmented matrix A
      A := TDoubleMatrix.Create(DataSet.Count + 1, DataSet.Count + 1);
-     SetLength(grIndex, DataSet.Count + 1);
-     for counter := 0 to Length(fZIdx) - 1 do
-         grIndex[fZIdx[counter] + 1] := 1;
-
-     for counter := 1 to Length(grIndex) - 1 do
-         if grIndex[counter] <> 1 then
-            grIndex[counter] := -1;
-
+     A.SetSubMatrix(1, 0, Length(grIndex), 1);
      A.SetRow(0, grIndex);
+     A.SetSubMatrix(0, 1, 1, Length(grIndex));
      A.SetColumn(0, grIndex);
-     A.SetSubMatrix(1, 1, kx.Width, kx.Height);
-     A.AddInplace(kx);
-     kx := nil;
      A.UseFullMatrix;
+     A.AssignSubMatrix(kx, 1, 1);
+     kx := nil;
 
      b := TDoubleMatrix.Create(1, A.Height, 1);
      b[0, 0] := 0;
@@ -470,7 +468,7 @@ begin
      faStar := TDoubleMatrix.Create(1, A.Height - 1);
      
      for counter := 0 to faStar.Height - 1 do
-         faStar[0, counter] := A[0, counter + 1]*grIndex[counter + 1];
+         faStar[0, counter] := A[0, counter + 1]*grIndex[counter];
 end;
 
 function TSVMLearner.PolyKernelData(augTrainSet : IMatrix): IMatrix;
@@ -617,7 +615,8 @@ begin
      // #### Autoscaling according to the train set
      if fProps.autoScale and Assigned(fScaleMean) and Assigned(fScaleFact) then
      begin
-          Result.Vec[fSV.Width - 1] := 1;
+          if Result.Width > Example.FeatureVec.FeatureVecLen then
+             Result.Vec[fSV.Width - 1] := 1;
           Result.SetSubMatrix(0, 0, fScaleMean.Width, 1);
           Result.SubInPlace(fScaleMean);
           Result.ElementWiseMultInPlace(fScaleFact);

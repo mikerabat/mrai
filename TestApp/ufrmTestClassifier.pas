@@ -799,22 +799,22 @@ procedure TfrmClassifierTest.butSVMClick(Sender: TObject);
 var learner : TSVMLearner;
     props : TSVMProps;
 begin
-     InitMathFunctions(itFPU, False);
      if Assigned(fExamples) then
      begin
           fClassifier.Free;
           FreeAndNil(fClMapBmp);
 
-          props.learnMethod := lmLagrangian;
-          props.autoScale := true;
-          //props.kernelType := svmGauss;
-          //props.sigma := 0.51;
-          //props.kernelType := svmSigmoid;
+          props.learnMethod := lmLeastSquares;
+          props.autoScale := True;
+//          props.autoScale := true;
+//          props.kernelType := svmGauss;
+//          props.sigma := 0.51;
+         // props.kernelType := svmSigmoid;
 //          props.scale := 0.5;
 //          props.offset := 1;
 
           props.kernelType := svmPolyInhomogen;
-          props.order := 3;
+          props.order := 2;
           props.slack := 1;
 
           learner := TSVMLearner.Create;
