@@ -295,6 +295,8 @@ begin
      pcaMu := nil;
 
      numClasses := IndexOfClasses(classIdx, classLabels);
+
+     assert(numClasses > 1, 'Only one class??');
      // this base classifier does not suppert reduction by now.
      // todo: eventually just don't use the eigenvectors (as proposed in the phd - the LDAonK classifier)
      CreateBaseLDAClassifier(pcaU, pcaMu, eigVals, ldaV, classCenters, classLabels, classIdx, numClasses);

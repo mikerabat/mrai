@@ -804,6 +804,7 @@ begin
           // create the nodes
           SetLength(leftData, maxnumElements);
           SetLength(rightData, Length(dataSetIdx) - maxnumElements);
+
           leftIdx := 0;
           rightIdx := 0;
 
@@ -811,12 +812,17 @@ begin
           for i := 0 to Length(dataSetIdx) - 1 do
           begin
                if DataSet[dataSetIdx[i]].FeatureVec[maxSplitFeatureIdx] < maxSplitVal then
-               begin      
+               begin
+                    // resize if necessary -> e.g. there are elements doubled
+                    if leftIdx >= Length(leftData) then
+                       SetLength(leftData, Length(dataSetIdx));
                     leftData[leftIdx] := dataSetIdx[i];
                     inc(leftIdx);
                end
                else
                begin
+                    if rightIdx >= Length(rightData) then
+                       SetLength(rightData, Length(dataSetIdx));
                     rightData[rightIdx] := dataSetIdx[i];
                     inc(rightIdx);
                end;
