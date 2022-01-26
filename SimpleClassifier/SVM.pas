@@ -99,6 +99,7 @@ type
 
     faStar : IMatrix;
     fBias : IMatrix;
+    fMtxClass : TMatrixClass;
 
     fVectIdx : TIntegerDynArray;
 
@@ -117,6 +118,8 @@ type
     // todo: add support for weighted learning
     function DoLearn(const weights : Array of double) : TCustomClassifier; override;
   public
+    class var Threaded : boolean;
+
     property Margin : double read GetMargin;  // just a property
   
     procedure AfterConstruction; override;
@@ -124,11 +127,14 @@ type
     procedure SetProps(const Props : TSVMProps);
 
     class function CanLearnClassifier(Classifier : TCustomClassifierClass) : boolean; override;
+
+    constructor Create;
+    destructor Destroy; override;
   end;
 
 implementation
 
-uses BaseMatrixExamples, MatrixConst, MathUtilFunc, math;
+uses BaseMatrixExamples, MatrixConst, MathUtilFunc, math, ThreadedMatrix;
 
 procedure TanhFunc(var value : double);
 begin
@@ -162,7 +168,7 @@ begin
      if doAugment then
         augsize := 1;
 
-     Result := TDoubleMatrix.Create(DataSet.Count, DataSet.Example[0].FeatureVec.FeatureVecLen + augsize, 1);
+     Result := fMtxClass.MatrixClass.Create(DataSet.Count, DataSet.Example[0].FeatureVec.FeatureVecLen + augsize, 1);
 
      if DataSet is TMatrixLearnerExampleList
      then
@@ -170,7 +176,6 @@ begin
      else
      begin
           // Create a matrix of the feature vectors -> this classifier only understands matrices
-          Result := TDoubleMatrix.Create(DataSet.Count, DataSet[0].FeatureVec.FeatureVecLen);
           for y := 0 to DataSet[0].FeatureVec.FeatureVecLen - 1 do
               for x := 0 to DataSet.Count - 1 do
                   Result[x, y] := DataSet[x].FeatureVec[y];
@@ -181,6 +186,20 @@ class function TSVMLearner.CanLearnClassifier(
   Classifier: TCustomClassifierClass): boolean;
 begin
      Result := Classifier = TSVMClassifier;
+end;
+
+constructor TSVMLearner.Create;
+begin
+     inherited;
+
+     fMtxClass := TMatrixClass.Create;
+end;
+
+destructor TSVMLearner.Destroy;
+begin
+     fMtxClass.Free;
+
+     inherited;
 end;
 
 function TSVMLearner.DoLearn(const weights : Array of double): TCustomClassifier;
@@ -198,6 +217,12 @@ var augExmpl : IMatrix;
 
     //fDists : TDoubleDynArray;
 begin
+     if Threaded
+     then
+         fMtxClass.MatrixClass := TThreadedMatrix
+     else
+         fMtxClass.MatrixClass := TDoubleMatrix;
+
      numCl := IndexOfClasses(idx, cl);
      if numCl <> 2 then
         raise ESVMClassException.Create('Error only 2 class problems are supported');
@@ -230,7 +255,7 @@ begin
                   scaleFact[0, counter] := 1;
           end;
 
-          ones := TDoubleMatrix.Create(scaleFact.Width, scaleFact.Height, 1);
+          ones := fMtxClass.MatrixClass.Create(scaleFact.Width, scaleFact.Height, 1);
           scaleFact := ones.ElementWiseDiv(scaleFact);
 
           // now scale the examples!
@@ -269,7 +294,7 @@ begin
      end;
 
      faStar.UseFullMatrix;
-     if Length(fVectIdx) < faStar.Height then
+     if (Length(fVectIdx) < faStar.Height) or Threaded then
      begin
           faStar.SetSubMatrix(0, 0, 1, Length(fVectIdx));
           tmp := TDoubleMatrix.Create;
@@ -437,7 +462,7 @@ begin
      gIdx := nil;    
      
      // create augmented matrix A
-     A := TDoubleMatrix.Create(DataSet.Count + 1, DataSet.Count + 1);
+     A := fMtxClass.MatrixClass.Create(DataSet.Count + 1, DataSet.Count + 1);
      A.SetSubMatrix(1, 0, Length(grIndex), 1);
      A.SetRow(0, grIndex);
      A.SetSubMatrix(0, 1, 1, Length(grIndex));
@@ -479,7 +504,7 @@ begin
      if fProps.kernelType = svmPolyInhomogen then
         dotproduct.AddInplace(1);
 
-     Result := TDoubleMatrix.Create;
+     Result := fMtxClass.MatrixClass.Create;
      Result.Assign(dotproduct);
 
      for x := 1 to fProps.order - 1 do
@@ -491,7 +516,7 @@ var x : Integer;
     tTrainSet : IMatrix;
     col : IMatrix;
 begin
-     Result := TDoubleMatrix.Create(augTrainSet.Width, augTrainSet.Width);
+     Result := fMtxClass.MatrixClass.Create(augTrainSet.Width, augTrainSet.Width);
      tTrainSet := augTrainSet.Transpose;
 
      for x := 0 to Result.Height - 1 do
@@ -514,7 +539,7 @@ var gamma : double;
     xi, sum : IMatrix;
     val : double;
 begin
-     Result := TDoubleMatrix.Create(augTrainSet.Width, augTrainSet.Width);
+     Result := fMtxClass.MatrixClass.Create(augTrainSet.Width, augTrainSet.Width);
 
      // y(:,i)    = exp(-sum((train_patterns-train_patterns(:,i)*ones(1,Nf)).^2)'/(2*ker_param^2));
      // according to wikipedia k(xi, xj) = exp(-s * ||xi - xj]]^2)   s = 1/(2*sigma^2);
@@ -1008,5 +1033,6 @@ end;
 
 initialization
    RegisterMathIO(TSVMClassifier);
+   TSVMLearner.Threaded := False;
 
 end.
