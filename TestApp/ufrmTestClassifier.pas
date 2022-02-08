@@ -23,6 +23,8 @@ uses
   Haar2DImageSweep, Image2DSweep, Types;
 
 type
+  TTrainSetType = (stGauss, stXOR, stCircles);
+type
   TfrmClassifierTest = class(TForm)
     GroupBox1: TGroupBox;
     butCreateGaussSet: TButton;
@@ -64,6 +66,9 @@ type
     butLDA: TButton;
     chkConfidence: TCheckBox;
     chkWeights: TCheckBox;
+    chkMultithread: TCheckBox;
+    Button1: TButton;
+    Button2: TButton;
     procedure butCreateGaussSetClick(Sender: TObject);
     procedure PaintBox1Paint(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -109,7 +114,7 @@ type
     procedure PaintFaceClassifier;
     procedure TestLearnError;
     procedure TestUnseenImages;
-    function Create2DGaussSet(const mean, stddev : Array of Double; const classLabels : Array of integer;
+    function Create2DTrainSet(setType : TTrainSetType; const mean, stddev : Array of Double; const classLabels : Array of integer;
                               numDim : integer; const numExamples : Array of integer) : TCustomLearnerExampleList;
   public
     { Public-Deklarationen }
@@ -126,7 +131,8 @@ uses BaseMatrixExamples, math, mathutilfunc, SimpleDecisionStump, AdaBoost,
      IncrementalFisherLDA, FisherIncrementalClassifiers, BaseIncrementalLearner,
      IntegralImg, Haar2DDataSet, MatrixImageLists, BinaryReaderWriter,
      BaseMathPersistence, DecisionTree45, TreeStructs, NaiveBayes, SVM, RBF, 
-     kmeans, NeuralNetwork, JSONReaderWriter, MatrixASMStubSwitch;
+     kmeans, NeuralNetwork, JSONReaderWriter, MatrixASMStubSwitch,
+  ThreadedMatrix;
 
 {$R *.dfm}
 
@@ -565,7 +571,16 @@ end;
 procedure TfrmClassifierTest.butCreateGaussSetClick(Sender: TObject);
 const means : Array[0..3] of double = (3.5, 3.5, 4.5, 4.5);
       stdevs : array[0..3] of double = (0.4, 0.4, 0.5, 0.5); //(1, 1.5, 2, 0.5);
+
+      stXOrMeans : Array[0..7] of double = (1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 2.0);
+      stXOrStdevs : Array[0..7] of double = (0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1);
+
+      stCirclesRad : Array[0..1] of double = (0.0, 1.0);
+      stCircleStdev : Array[0..1] of double = (0.1, 0.1);
+
       classLabels : array[0..1] of integer = (-1, 1);
+      cNumExamples1 = 50;
+      cNumExamples2 = 50;
 begin
      fExamples.Free;
      FreeAndNil(fClassifier);
@@ -576,7 +591,15 @@ begin
 {$ENDIF}
 
      // testing a gaussian distribution
-     fexamples := Create2DGaussSet(means, stdevs, classLabels, 2, [50, 50]);
+     case TTrainSetType((Sender as TButton).Tag) of
+       stGauss: fexamples := Create2DTrainSet(stGauss, means,
+                                              stdevs, classLabels, 2, [cNumExamples1, cNumExamples2]);
+       stXOR: fexamples := Create2DTrainSet(stXOR,
+                                              stXorMeans, stXOrStdevs, classLabels, 2, [cNumExamples1, cNumExamples2]);
+       stCircles: fexamples := Create2DTrainSet(stCircles, stCirclesRad,
+                                              stCircleStdev, classLabels, 2, [cNumExamples1, cNumExamples2]);
+     end;
+
      PaintBox1.Repaint;
 end;
 
@@ -819,6 +842,7 @@ begin
 
           learner := TSVMLearner.Create;
           try
+             learner.Threaded := chkMultithread.Checked;
              learner.SetProps(props);
              learner.Init(fExamples);
              fClassifier := learner.Learn(Weights);
@@ -831,61 +855,154 @@ begin
      TestLearnError;
 end;
 
-function TfrmClassifierTest.Create2DGaussSet(const mean,
+function TfrmClassifierTest.Create2DTrainSet( setType : TTrainSetType; const mean,
   stddev: array of Double; const classLabels : Array of integer; numDim : integer; const numExamples : Array of integer): TCustomLearnerExampleList;
 var i, j, k : integer;
     matrix : TDoubleMatrix;
     classvals : Array of integer;
     actClassIdx : integer;
+    phi : double;
 begin
-     assert(Length(mean) = length(stddev), 'Dimension error');
-     assert(Length(mean) mod numDim = 0, 'Dimension error');
-     assert(Length(classLabels) = Length(stddev) div numDim, 'Dimension error');
      Setlength(classvals, SumInt( numExamples ));
 
-     // this is a simple test matrix for easier debugging
-     //matrix := TDoubleMatrix.Create(4, 2);
-//     matrix[0, 0] := -1;
-//     matrix[0, 1] := -0.9;
-//     matrix[1, 0] := -0.4;
-//     matrix[1, 1] := -0.5;
-//     matrix[2, 0] := 1;
-//     matrix[2, 1] := 0.8;
-//     matrix[3, 0] := 0.9;
-//     matrix[3, 1] := 0.4;
-//     //matrix[4, 0] := 0.7;
-////     matrix[4, 1] := -0.1;
-//
-//     SetLength(classVals, 4);
-//     classVals[0] := -1;
-//     classVals[1] := -1;
-//     classVals[2] := 1;
-//     classVals[3] := 1;
-//
-//     Result := TMatrixLearnerExampleList.Create(matrix, classvals, True);
-//
-//     fMinVal := -1;
-//     fMaxVal := 1;
-//     exit;
 
-     fMinVal := MaxDouble;
-     fMaxVal := -MaxDouble;
-
-     matrix := TDoubleMatrix.Create(Length(classVals), numDim);
-     actClassIdx := 0;
-     for i := 0 to Length(stddev) div numDim - 1 do
+     if setType = stGauss then
      begin
-          for j := 0 to numExamples[i] - 1 do
+          assert(Length(mean) = length(stddev), 'Dimension error');
+          assert(Length(mean) mod numDim = 0, 'Dimension error');
+          assert(Length(classLabels) = Length(stddev) div numDim, 'Dimension error');
+
+                 // this is a simple test matrix for easier debugging
+          //matrix := TDoubleMatrix.Create(4, 2);
+     //     matrix[0, 0] := -1;
+     //     matrix[0, 1] := -0.9;
+     //     matrix[1, 0] := -0.4;
+     //     matrix[1, 1] := -0.5;
+     //     matrix[2, 0] := 1;
+     //     matrix[2, 1] := 0.8;
+     //     matrix[3, 0] := 0.9;
+     //     matrix[3, 1] := 0.4;
+     //     //matrix[4, 0] := 0.7;
+     ////     matrix[4, 1] := -0.1;
+     //
+     //     SetLength(classVals, 4);
+     //     classVals[0] := -1;
+     //     classVals[1] := -1;
+     //     classVals[2] := 1;
+     //     classVals[3] := 1;
+     //
+     //     Result := TMatrixLearnerExampleList.Create(matrix, classvals, True);
+     //
+     //     fMinVal := -1;
+     //     fMaxVal := 1;
+     //     exit;
+
+          fMinVal := MaxDouble;
+          fMaxVal := -MaxDouble;
+
+          matrix := TDoubleMatrix.Create(Length(classVals), numDim);
+          actClassIdx := 0;
+          for i := 0 to Length(stddev) div numDim - 1 do
           begin
-               for k := 0 to numDim - 1 do
+               for j := 0 to numExamples[i] - 1 do
                begin
-                    matrix[actClassIdx, k] := RandG(mean[i*numDim + k], stddev[i*numDim + k]);
+                    for k := 0 to numDim - 1 do
+                    begin
+                         matrix[actClassIdx, k] := RandG(mean[i*numDim + k], stddev[i*numDim + k]);
 
-                    fMinVal := Min(fMinVal, matrix[actClassIdx, k]);
-                    fMaxVal := Max(fMaxVal, matrix[actClassIdx, k]);
+                         fMinVal := Min(fMinVal, matrix[actClassIdx, k]);
+                         fMaxVal := Max(fMaxVal, matrix[actClassIdx, k]);
+                    end;
+
+                    classvals[actClassIdx] := classLabels[i];
+                    inc(actClassIdx);
                end;
+          end;
+     end
+     else if setType = stXOR then
+     begin
+          fMinVal := MaxDouble;
+          fMaxVal := -MaxDouble;
 
-               classvals[actClassIdx] := classLabels[i];
+          matrix := TDoubleMatrix.Create(Length(classVals), numDim);
+          actClassIdx := 0;
+
+          assert(Length(mean) = 8, 'xor needs 8 means (4 xy) ');
+          assert(numDim = 2, 'XY dim needed (dimension 2)');
+
+          for i := 0 to numExamples[0] div 2 - 1 do
+          begin
+               matrix[actClassIdx, 0] := RandG(mean[0], stddev[0]);
+               matrix[actClassIdx, 1] := RandG(mean[1], stddev[1]);
+
+               fMinVal := Min(fMinVal, Min(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               fMaxVal := Max(fMaxVal, Max(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               classvals[actClassIdx] := classLabels[0];
+               inc(actClassIdx);
+          end;
+          for i := 0 to numExamples[0] div 2 - 1 do
+          begin
+               matrix[actClassIdx, 0] := RandG(mean[2], stddev[2]);
+               matrix[actClassIdx, 1] := RandG(mean[3], stddev[3]);
+
+               fMinVal := Min(fMinVal, Min(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               fMaxVal := Max(fMaxVal, Max(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               classvals[actClassIdx] := classLabels[0];
+               inc(actClassIdx);
+          end;
+
+          for i := 0 to numExamples[1] div 2 - 1 do
+          begin
+               matrix[actClassIdx, 0] := RandG(mean[4], stddev[4]);
+               matrix[actClassIdx, 1] := RandG(mean[5], stddev[5]);
+
+               fMinVal := Min(fMinVal, Min(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               fMaxVal := Max(fMaxVal, Max(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               classvals[actClassIdx] := classLabels[1];
+               inc(actClassIdx);
+          end;
+          for i := 0 to numExamples[1] div 2 - 1 do
+          begin
+               matrix[actClassIdx, 0] := RandG(mean[6], stddev[6]);
+               matrix[actClassIdx, 1] := RandG(mean[7], stddev[7]);
+
+               fMinVal := Min(fMinVal, Min(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               fMaxVal := Max(fMaxVal, Max(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               classvals[actClassIdx] := classLabels[1];
+               inc(actClassIdx);
+          end;
+     end
+     else
+     begin
+          fMinVal := MaxDouble;
+          fMaxVal := -MaxDouble;
+
+          matrix := TDoubleMatrix.Create(Length(classVals), numDim);
+          actClassIdx := 0;
+
+          for i := 0 to numExamples[0] - 1 do
+          begin
+               // calc random circle coordinates
+               phi := Random*2*pi;
+               matrix[actClassIdx, 0] := mean[0]*sin(phi) + RandG(0, stddev[0]);
+               matrix[actClassIdx, 1] := mean[0]*cos(phi) + RandG(0, stddev[0]);
+
+               fMinVal := Min(fMinVal, Min(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               fMaxVal := Max(fMaxVal, Max(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               classvals[actClassIdx] := classLabels[0];
+               inc(actClassIdx);
+          end;
+
+          for i := 0 to numExamples[1] - 1 do
+          begin
+               // calc random circle coordinates
+               phi := Random*2*pi;
+               matrix[actClassIdx, 0] := mean[1]*sin(phi) + RandG(0, stddev[1]);
+               matrix[actClassIdx, 1] := mean[1]*cos(phi) + RandG(0, stddev[1]);
+
+               fMinVal := Min(fMinVal, Min(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               fMaxVal := Max(fMaxVal, Max(matrix[actClassIdx, 1], matrix[actClassIdx, 0]));
+               classvals[actClassIdx] := classLabels[1];
                inc(actClassIdx);
           end;
      end;
@@ -910,6 +1027,7 @@ end;
 procedure TfrmClassifierTest.FormCreate(Sender: TObject);
 begin
      ReportMemoryLeaksOnShutdown := True;
+     TThreadedMatrix.InitThreadPool;
 end;
 
 procedure TfrmClassifierTest.FormDestroy(Sender: TObject);

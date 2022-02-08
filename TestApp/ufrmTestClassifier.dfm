@@ -65,21 +65,21 @@ object frmClassifierTest: TfrmClassifierTest
       Top = 32
       Width = 139
       Height = 25
-      Caption = 'Create 2D Gauss set'
+      Caption = 'Create Gauss set'
       TabOrder = 0
       OnClick = butCreateGaussSetClick
     end
     object butDecissionStump: TButton
-      Left = 14
+      Left = 161
       Top = 72
-      Width = 139
+      Width = 108
       Height = 25
       Caption = 'Decission Stump'
       TabOrder = 1
       OnClick = butDecissionStumpClick
     end
     object butAdaBoost: TButton
-      Left = 161
+      Left = 272
       Top = 72
       Width = 153
       Height = 25
@@ -127,7 +127,7 @@ object frmClassifierTest: TfrmClassifierTest
       OnClick = butC45Click
     end
     object butNaiveBayes: TButton
-      Left = 479
+      Left = 590
       Top = 72
       Width = 106
       Height = 25
@@ -136,7 +136,7 @@ object frmClassifierTest: TfrmClassifierTest
       OnClick = butNaiveBayesClick
     end
     object butRBF: TButton
-      Left = 320
+      Left = 431
       Top = 72
       Width = 72
       Height = 25
@@ -145,7 +145,7 @@ object frmClassifierTest: TfrmClassifierTest
       OnClick = butRBFClick
     end
     object butKMean: TButton
-      Left = 398
+      Left = 509
       Top = 72
       Width = 75
       Height = 25
@@ -163,7 +163,7 @@ object frmClassifierTest: TfrmClassifierTest
       OnClick = butNeuralNetClick
     end
     object butLDA: TButton
-      Left = 686
+      Left = 702
       Top = 72
       Width = 101
       Height = 25
@@ -179,6 +179,26 @@ object frmClassifierTest: TfrmClassifierTest
       Hint = 'Testing the weighted learner routines or the generic weighting'
       Caption = 'Random Weights'
       TabOrder = 11
+    end
+    object Button1: TButton
+      Tag = 2
+      Left = 14
+      Top = 84
+      Width = 139
+      Height = 25
+      Caption = 'Create Circle set'
+      TabOrder = 12
+      OnClick = butCreateGaussSetClick
+    end
+    object Button2: TButton
+      Tag = 1
+      Left = 14
+      Top = 58
+      Width = 139
+      Height = 25
+      Caption = 'Create XOR set'
+      TabOrder = 13
+      OnClick = butCreateGaussSetClick
     end
   end
   object grpFaces: TGroupBox
@@ -373,7 +393,7 @@ object frmClassifierTest: TfrmClassifierTest
   object butSVM: TButton
     Left = 646
     Top = 32
-    Width = 149
+    Width = 168
     Height = 25
     Caption = 'Support Vector Machines'
     TabOrder = 2
@@ -387,6 +407,16 @@ object frmClassifierTest: TfrmClassifierTest
     Caption = 'Confidence Map'
     TabOrder = 3
     OnClick = chkConfidenceClick
+  end
+  object chkMultithread: TCheckBox
+    Left = 634
+    Top = 148
+    Width = 180
+    Height = 17
+    Caption = 'Multithreaded were possible'
+    Checked = True
+    State = cbChecked
+    TabOrder = 4
   end
   object sdSaveAdaBoost: TSaveDialog
     DefaultExt = 'cls'
