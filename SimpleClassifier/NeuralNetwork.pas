@@ -186,7 +186,7 @@ type
 implementation
 
 uses Math, SysUtils, BaseMatrixExamples, Matrix, MatrixASMStubSwitch, 
-  MatrixConst;
+     MatrixConst;
 
 // ################################################
 // ##### persistence
@@ -218,8 +218,7 @@ begin
 end;
 
 function TNeuron.Feed(const Input : TDoubleDynArray): double;
-var i : integer;
-    absRes : double;
+var absRes : double;
     invBeta : double;
     sign : double;
 const cD1 : double = (0.8808 - 0.5)/2;   // slope between -2:2
@@ -227,9 +226,9 @@ const cD1 : double = (0.8808 - 0.5)/2;   // slope between -2:2
 begin
      assert(Length(input) + 1 = length(fWeights), 'Error input does not match learned weights');
 
-     Result := fWeights[0];
-     for i := 0 to Length(Input) - 1 do
-         Result := Result + Input[i]*fWeights[i + 1];
+     Result := fWeights[0] + MatrixVecDotMult( @Input[0], sizeof(double), @fWeights[1], sizeof(double), Length(Input) );
+     //for i := 0 to Length(Input) - 1 do
+//         Result := Result + Input[i]*fWeights[i + 1];
 
      case fNeuralType of
        //ntPerceptron: Result := ifthen(Result < fThresh, 0, 1);
@@ -780,7 +779,7 @@ begin
      // ##### batch error evaluation
      for learnCnt := 0 to fProps.maxNumIter - 1 do
      begin
-
+          DoProgress(100*learnCnt div fProps.maxNumIter);
           // ##########################################################
           // #### One batch learn iteration (randomized data set)
           shuffIdx := randSet.Shuffle;

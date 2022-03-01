@@ -40,6 +40,7 @@ type
 type
   TFisherAugmentedBaseProps = record
     UseFullSpace : boolean;
+    Multithreaded : boolean;
     ClassifierType : TFisherAugmentedClassifierType;
     NumLDAVectorsToKeep : integer;                   // todo: eventually take the pca eigenvalues energy as property
     RobustPCAProps : TFastRobustPCAProps;            // only used in case the classifier type is ctFastRobust
@@ -51,6 +52,8 @@ type
 // Augmented subspace learning without any vector reduction
 type
   TFisherBatchLDALearner = class(TCustomLearner)
+  private
+    procedure OnPCAProgress(Sender : TObject; progress : integer);
   protected
     fProps : TFisherAugmentedBaseProps;
     fPCA : TMatrixPCA;
@@ -83,7 +86,8 @@ type
 
 implementation
 
-uses BaseMatrixExamples, Math, LinearAlgebraicEquations, FisherClassifiers, MatrixConst;
+uses BaseMatrixExamples, Math, LinearAlgebraicEquations, FisherClassifiers, 
+     MatrixConst, ThreadedMatrix;
 
 { TFisherBatchLDALearner }
 
@@ -379,6 +383,12 @@ begin
      end;
 end;
 
+procedure TFisherBatchLDALearner.OnPCAProgress(Sender: TObject;
+  progress: integer);
+begin
+     DoProgress(2 + progress*90 div 100);
+end;
+
 function TFisherBatchLDALearner.PCAAndProject(data: TDoubleMatrix; var U, mu,
   A: TDoubleMatrix; var eigVals : TDoubleMatrix): boolean;
 var minVal : integer;
@@ -397,6 +407,14 @@ begin
      else
          fpca := TMatrixPCA.Create([pcaTransposedEigVec]);
      try
+        if fProps.Multithreaded 
+        then
+            fpca.MatrixClass := TThreadedMatrix
+        else
+            fpca.MatrixClass := TDoubleMatrix;
+            
+        fPCA.OnProgress := OnPCAProgress;
+        
         // todo: do we have to use the weights here?
         if not fpca.PCA(data, 1, True) then
         begin

@@ -50,6 +50,10 @@ type
     NumClasses : integer;
     Classes : TIntegerDynArray;
     NumExamples : integer;
+    Conf : double;               // we define the confidence as the weighted sum of the leaf elements 
+                                 // to the overall weighted sum leading to the leaf
+                                 // -> is 1 if all elements are correctly classified in the learning set
+                                 // -> 0 < conf < 1 if the leaf is not correctly classifying due to max depth or pruning
     
     NumLeft, NumRight : integer;
     WeightedSums : TDoubleDynArray;
@@ -274,15 +278,16 @@ begin
           entropyR := 0;
           for k := 0 to numClasses - 1 do
           begin
-               if sumLeft[k] > 0 then
+               if sumLeft[k] > eps then
                   entropyL := entropyL - sumLeft[k]/sumWeightLeft*log2(sumLeft[k]/sumWeightLeft);
-               if sumRight[k] > 0 then
+               if sumRight[k] > eps then
                   entropyR := entropyR - sumRight[k]/(sumWeight - sumWeightLeft)*log2(sumRight[k]/(sumWeight - sumWeightLeft));
           end;
           
           // G(S)
           splitEntropy := entropyL*sumweightLeft/sumWeight + entropyR*(sumWeight - sumWeightLeft)/sumWeight;
           gs := setEntropy - splitEntropy;
+          entropyGain := 0;
           
           if fProps.useGainRatio then
           begin
@@ -297,7 +302,8 @@ begin
                   partitionEntropy := partitionEntropy - (sumWeight - sumWeightLeft)/sumWeight*log2((sumWeight - sumWeightLeft)/sumWeight);
 
                // B
-               entropyGain := gs/partitionEntropy; 
+               if partitionEntropy > eps then
+                  entropyGain := gs/partitionEntropy; 
           end
           else
               entropyGain := gs;
@@ -513,7 +519,10 @@ begin
                nodeData.FeatureSplitIndex := -1;
                SetLength(nodeData.Classes, 1);
                nodeData.Classes[0] := ifthen(Length(dataSetIdx) - numClassItems < numClassItems, cl1, cl2);
-
+               nodeData.Conf := numClassItems/Length(dataSetIdx);
+               if nodeData.Classes[0] = cl2 then
+                  nodeData.Conf := 1 - nodeData.Conf;
+               
                leave.TreeData := nodeData;
 
                if TTreeNode(rootNode.Parent).LeftItem = rootNode then
@@ -607,6 +616,7 @@ var i, j : integer;
 
 function SelectLeaveByWeights : TTreeLeave;
 var i : integer;
+    sumWeights : double;
 begin
      // assign a leave node to the class with the best performance
      nodeData := T45NodeData.Create;
@@ -618,9 +628,11 @@ begin
      nodeData.NumExamples := overallNumExamples;
      nodeData.NumLeft := 0;
      nodedata.NumRight := 0;
+     sumWeights := nodeData.WeightedSums[0];
 
      for i := 1 to fnumClasses - 1 do
      begin
+          sumWeights := sumWeights + nodeData.WeightedSums[i];
           if nodeData.WeightedSums[i] > nodeData.WeightedSums[0] then
           begin
                tempi := nodeData.Classes[i];
@@ -632,6 +644,9 @@ begin
                nodeData.WeightedSums[0] := tempD;
           end;
      end;
+     nodeData.Conf := 0;
+     if sumWeights > eps then
+        nodeData.Conf := nodeData.WeightedSums[0]/sumWeights;
 
      Result := TTreeLeave.Create;
      Result.TreeData := nodeData;
@@ -876,15 +891,16 @@ function TC45Classifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var node : TCustomTreeItem;
     nodeData : T45NodeData;
+    num : integer;
 begin
-     // todo: incorporate missing value detection
+     // todo: incorporate missing value detection and confidence calculation
      node := fTree;
-
+     confidence := 1;
      while Assigned(node) and not (node is TTreeLeave) do
      begin
           nodeData := T45NodeData(node.TreeData);
-
-          if Example.FeatureVec[nodeData.FeatureSplitIndex] < nodeData.SplitVal
+          
+          if Example.FeatureVec[nodeData.FeatureSplitIndex] < nodeData.SplitVal 
           then
               node := TTreeNode(node).LeftItem
           else
@@ -896,8 +912,7 @@ begin
      assert(node is TTreeLeave, 'Error no leave found');
      nodeData := T45NodeData(node.TreeData);
      Result := nodeData.Classes[0];
-
-     confidence := 0;
+     confidence := nodeData.Conf;  // just what we learned at the training
 end;
 
 constructor TC45Classifier.Create(Tree: TCustomTreeItem);

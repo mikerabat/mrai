@@ -40,6 +40,7 @@ type
     learnMethod : TSVMLearnMethod;
     slack : double;     // see Lagragian support vector machines
     autoScale : boolean;
+    threaded : boolean; // overrides the current setting
     case kernelType : TSVMKernel of
       svmPoly,
       svmPolyInhomogen: ( order : integer; );
@@ -118,8 +119,6 @@ type
     // todo: add support for weighted learning
     function DoLearn(const weights : Array of double) : TCustomClassifier; override;
   public
-    class var Threaded : boolean;
-
     property Margin : double read GetMargin;  // just a property
   
     procedure AfterConstruction; override;
@@ -217,7 +216,7 @@ var augExmpl : IMatrix;
 
     //fDists : TDoubleDynArray;
 begin
-     if Threaded
+     if fProps.Threaded
      then
          fMtxClass.MatrixClass := TThreadedMatrix
      else
@@ -294,7 +293,7 @@ begin
      end;
 
      faStar.UseFullMatrix;
-     if (Length(fVectIdx) < faStar.Height) or Threaded then
+     if (Length(fVectIdx) < faStar.Height) or fProps.Threaded then
      begin
           faStar.SetSubMatrix(0, 0, 1, Length(fVectIdx));
           tmp := TDoubleMatrix.Create;
@@ -1033,6 +1032,5 @@ end;
 
 initialization
    RegisterMathIO(TSVMClassifier);
-   TSVMLearner.Threaded := False;
 
 end.

@@ -52,7 +52,7 @@ type
   public
     property FeatureVec : TCustomFeatureList read fFeatureVec;
 
-    constructor Create(FeatureVec : TCustomFeatureList; ownsFeatureVec : boolean);
+    constructor Create(aFeatureVec : TCustomFeatureList; ownsFeatureVec : boolean);
     destructor Destroy; override;
   end;
 
@@ -163,7 +163,7 @@ type
     function IndexOfClasses(var Idx : TIntIntArray; var classes : TIntegerDynArray) : integer;
     function Classes : TIntegerDynArray;
   public
-    procedure Init(DataSet : TCustomLearnerExampleList); virtual;
+    procedure Init(aDataSet : TCustomLearnerExampleList); virtual;
     function Learn(const weights : Array of double) : TCustomClassifier; overload;
     function Learn : TCustomClassifier; overload;
   end;
@@ -194,7 +194,7 @@ type
 
 implementation
 
-uses Math, BaseMatrixExamples;
+uses Math, BaseMatrixExamples, Matrix;
 
 { TCustomExampleList }
 
@@ -328,7 +328,7 @@ end;
 
 function TCustomLearnerExampleList.CreateBalancedDataSet : TCustomLearnerExampleList;
 var classes : Array of integer;
-    numClasses : integer;
+    numCl : integer;
     i : integer;
     copyList : TCustomLearnerExampleList;
     minNumElem : integer;
@@ -348,34 +348,34 @@ begin
         // first check out the number of classes and the number of elements belonging to these classes
         for i := 0 to Count - 1 do
             copyList.Add(Example[i]);
-        copyList.Sort(ClassSort);
+        copyList.Sort({$IFDEF FPC}@{$ENDIF}ClassSort);
 
         SetLength(classes, 10);
-        numClasses := 1;
+        numCl := 1;
         classes[0] := 1;
 
         for i := 1 to copyList.Count - 1 do
         begin
              if copyList[i].ClassVal <> copyList[i - 1].ClassVal then
              begin
-                  inc(NumClasses);
+                  inc(numCl);
 
-                  if NumClasses >= Length(classes) then
+                  if numCl >= Length(classes) then
                      SetLength(classes, Min(2*Length(classes), Length(classes) + 1000));
              end;
 
-             inc(classes[numClasses - 1]);
+             inc(classes[numCl - 1]);
         end;
 
         // search for the class with the lowest number of elements
         minNumElem := classes[0];
-        for i := 1 to numClasses - 1 do
+        for i := 1 to numCl - 1 do
             minNumElem := Min(minNumElem, classes[i]);
 
         // create the resulting list:
         Result := TCustomLearnerExampleList.Create; //ClassType.Create as TCustomLearnerExampleList;
         Result.OwnsObjects := False;
-        Result.Capacity := minNumElem*numClasses;
+        Result.Capacity := minNumElem*numCl;
 
         actNumElem := 0;
         actClass := 0;
@@ -399,13 +399,13 @@ end;
 
 function TCustomLearnerExampleList.CreateRandomizedBalancedDataSet(Percentage : integer) : TCustomLearnerExampleList;
 var classes : Array of integer;
-    numClasses : integer;
+    numCl : integer;
     i, j : integer;
     copyList : TCustomLearnerExampleList;
     minNumElem : integer;
     actNumElem : integer;
     actClass : integer;
-    list : TCustomLearnerExampleList;
+    aList : TCustomLearnerExampleList;
 begin
      Result := nil;
      if Count = 0 then
@@ -420,28 +420,28 @@ begin
         // first check out the number of classes and the number of elements belonging to these classes
         for i := 0 to Count - 1 do
             copyList.Add(Example[i]);
-        copyList.Sort(ClassSort);
+        copyList.Sort({$IFDEF FPC}@{$ENDIF}ClassSort);
 
         SetLength(classes, 10);
-        numClasses := 1;
+        numCl := 1;
         classes[0] := 1;
 
         for i := 1 to copyList.Count - 1 do
         begin
              if copyList[i].ClassVal <> copyList[i - 1].ClassVal then
              begin
-                  inc(NumClasses);
+                  inc(numCl);
 
-                  if NumClasses >= Length(classes) then
+                  if numCl >= Length(classes) then
                      SetLength(classes, Min(2*Length(classes), Length(classes) + 1000));
              end;
 
-             inc(classes[numClasses - 1]);
+             inc(classes[numCl - 1]);
         end;
 
         // search for the class with the lowest number of elements
         minNumElem := classes[0];
-        for i := 1 to numClasses - 1 do
+        for i := 1 to numCl - 1 do
             minNumElem := Min(minNumElem, classes[i]);
 
         minNumElem := (minNumElem*Max(0, Min(100, Percentage))) div 100;
@@ -449,19 +449,19 @@ begin
         // create the resulting list:
         Result := TCustomLearnerExampleList.Create; //ClassType.Create as TCustomLearnerExampleList;
         Result.OwnsObjects := False;
-        Result.Capacity := minNumElem*numClasses;
+        Result.Capacity := minNumElem*numCl;
 
         actNumElem := 0;
         actClass := 0;
-        for i := 0 to numClasses - 1 do
+        for i := 0 to numCl - 1 do
         begin
              // this line ensures that consecutive calls to this routine does not result in the same resulting dataset
-             list := InternalRandomDataSet(copyList, actNumElem, actNumElem + Classes[actClass] - 1, minNumElem);
+             aList := InternalRandomDataSet(copyList, actNumElem, actNumElem + Classes[actClass] - 1, minNumElem);
              try
-                for j := 0 to list.Count - 1 do
-                    Result.Add(list[j]);
+                for j := 0 to aList.Count - 1 do
+                    Result.Add(aList[j]);
              finally
-                    list.Free;
+                    aList.Free;
              end;
              inc(actNumElem, Classes[actClass]);
              inc(actClass);
@@ -800,9 +800,9 @@ begin
      SetLength(classes, Result);
 end;
 
-procedure TCustomWeightedLearner.Init(DataSet: TCustomLearnerExampleList);
+procedure TCustomWeightedLearner.Init(aDataSet: TCustomLearnerExampleList);
 begin
-     fDataSet := DataSet;
+     fDataSet := aDataSet;
 end;
 
 function TCustomWeightedLearner.Learn(const weights: array of double): TCustomClassifier;
@@ -906,9 +906,9 @@ end;
 
 { TCustomExample }
 
-constructor TCustomExample.Create(FeatureVec: TCustomFeatureList; ownsFeatureVec : boolean);
+constructor TCustomExample.Create(aFeatureVec: TCustomFeatureList; ownsFeatureVec : boolean);
 begin
-     fFeatureVec := FeatureVec;
+     fFeatureVec := aFeatureVec;
      fOwnsFeature := ownsFeatureVec;
 end;
 

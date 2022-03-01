@@ -474,6 +474,7 @@ begin
           FreeAndNil(fClMapBmp);
 
           FillChar(Props, sizeof(props), 0);
+          props.Multithreaded := chkMultithread.Checked;
           props.RobustPCAProps.NumSubSubSpaces := 1;
           props.RobustPCAProps.SubSpaceSizes := 0.8;
           props.RobustPCAProps.SubSpaceCutEPS := 0.99;
@@ -548,6 +549,7 @@ begin
           FreeAndNil(fClMapBmp);
           
           FillChar(props, sizeof(props), 0);
+          props.threadedGainCalc := chkMultithread.Checked;
           props.LearnType := ltPrune;
           props.ValidationsetSize := 0.0;
           props.UseValidationSet := True;
@@ -829,6 +831,7 @@ begin
 
           props.learnMethod := lmLeastSquares;
           props.autoScale := True;
+          props.threaded := chkMultithread.Checked;
 //          props.autoScale := true;
 //          props.kernelType := svmGauss;
 //          props.sigma := 0.51;
@@ -842,7 +845,6 @@ begin
 
           learner := TSVMLearner.Create;
           try
-             learner.Threaded := chkMultithread.Checked;
              learner.SetProps(props);
              learner.Init(fExamples);
              fClassifier := learner.Learn(Weights);
