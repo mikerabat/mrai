@@ -891,7 +891,6 @@ function TC45Classifier.Classify(Example: TCustomExample;
   var confidence: double): integer;
 var node : TCustomTreeItem;
     nodeData : T45NodeData;
-    num : integer;
 begin
      // todo: incorporate missing value detection and confidence calculation
      node := fTree;
